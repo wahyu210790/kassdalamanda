@@ -101,7 +101,7 @@ export function PublicDashboard() {
         </Card>
       )}
 
-      {!isLoading && !isError && searchResults !== null && searchResults.length === 0 && (
+      {!isLoading && !isError && searchResults?.length === 0 && (
         <div className="text-center py-12 text-muted-foreground bg-card rounded-xl border border-dashed">
           <Search className="h-12 w-12 mx-auto mb-4 opacity-20" />
           <p className="text-lg font-medium">Siswa tidak ditemukan</p>
