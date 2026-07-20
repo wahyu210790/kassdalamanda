@@ -25,8 +25,8 @@ export function Sidebar() {
     <aside className="hidden lg:flex fixed inset-y-0 left-0 z-50 w-64 bg-card border-r flex-col transition-transform duration-300">
       <div className="flex h-16 shrink-0 items-center px-6 border-b">
         <div className="flex items-center gap-3">
-          <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
-            <Wallet className="w-5 h-5" />
+          <div className="bg-primary/10 p-1 rounded-lg">
+            <img src="/logo.png" alt="Logo" className="w-6 h-6 object-contain" />
           </div>
           <span className="font-semibold text-lg tracking-tight">Kas Alamanda</span>
         </div>

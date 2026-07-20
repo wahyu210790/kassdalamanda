@@ -64,8 +64,8 @@ export function Login() {
         <div className="mx-auto w-full max-w-sm space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <div className="space-y-2 text-center lg:text-left">
             <div className="flex justify-center lg:justify-start items-center gap-3 mb-6">
-              <div className="bg-primary/10 p-3 rounded-2xl">
-                <Wallet className="w-8 h-8 text-primary" />
+              <div className="bg-primary/10 p-2 rounded-2xl">
+                <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 Kas Alamanda

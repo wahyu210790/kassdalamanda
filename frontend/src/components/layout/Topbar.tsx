@@ -21,8 +21,8 @@ export function Topbar() {
           </SheetTrigger>
           <SheetContent side="left" className="w-72 p-0 flex flex-col">
             <SheetHeader className="p-6 border-b text-left flex flex-row items-center gap-3 space-y-0">
-              <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
-                <Wallet className="w-5 h-5" />
+              <div className="bg-primary/10 p-1 rounded-lg">
+                <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
               </div>
               <SheetTitle className="text-lg tracking-tight">Kas Alamanda</SheetTitle>
             </SheetHeader>
