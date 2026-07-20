@@ -55,27 +55,27 @@ export function PublicDashboard() {
   };
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Cek Data Kas & Tabungan</h1>
-        <p className="text-muted-foreground max-w-xl mx-auto">
+    <div className="space-y-6 sm:space-y-8 max-w-4xl mx-auto px-2 sm:px-0">
+      <div className="text-center space-y-3 sm:space-y-4">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">Cek Data Kas & Tabungan</h1>
+        <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto px-4 sm:px-0">
           Masukkan nama siswa untuk melihat transparansi status pembayaran uang kas dan total tabungan kelas.
         </p>
       </div>
 
-      <Card className="shadow-lg border-primary/20">
+      <Card className="shadow-lg border-primary/20 mx-2 sm:mx-0">
         <CardContent className="pt-6">
-          <form onSubmit={handleSearch} className="flex gap-3">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
               <Input 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Ketik minimal 3 huruf nama siswa..." 
-                className="pl-10 h-12 text-lg rounded-xl"
+                className="pl-10 h-12 text-base sm:text-lg rounded-xl"
               />
             </div>
-            <Button type="submit" disabled={searchTerm.length < 3} className="h-12 px-6 rounded-xl">
+            <Button type="submit" disabled={searchTerm.length < 3} className="h-12 w-full sm:w-auto px-8 rounded-xl font-medium">
               Cari Data
             </Button>
           </form>
