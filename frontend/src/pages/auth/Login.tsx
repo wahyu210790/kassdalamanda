@@ -31,7 +31,7 @@ export function Login() {
     resolver: zodResolver(loginSchema),
   });
 
-  const from = location.state?.from?.pathname || "/";
+  const from = location.state?.from?.pathname || "/admin";
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);

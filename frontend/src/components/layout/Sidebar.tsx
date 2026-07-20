@@ -10,12 +10,12 @@ import {
 } from "lucide-react"
 
 export const navItems = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Siswa", href: "/students", icon: Users },
-  { name: "Pembayaran Kas & Tabungan", href: "/payments", icon: Wallet },
-  { name: "Pengeluaran", href: "/expenses", icon: Receipt },
-  { name: "Laporan", href: "/reports", icon: FileText },
-  { name: "Pengaturan", href: "/settings", icon: Settings },
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "Siswa", href: "/admin/students", icon: Users },
+  { name: "Pembayaran Kas & Tabungan", href: "/admin/payments", icon: Wallet },
+  { name: "Pengeluaran", href: "/admin/expenses", icon: Receipt },
+  { name: "Laporan", href: "/admin/reports", icon: FileText },
+  { name: "Pengaturan", href: "/admin/settings", icon: Settings },
 ]
 
 export function Sidebar() {
