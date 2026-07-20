@@ -12,7 +12,13 @@ use App\Http\Controllers\Api\ExpenseCategoryController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\ReportController;
 
+use App\Http\Controllers\Api\PublicController;
+
 Route::post('/login', [AuthController::class, 'login']);
+
+Route::prefix('public')->group(function () {
+    Route::get('/students/search', [PublicController::class, 'searchStudent']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
