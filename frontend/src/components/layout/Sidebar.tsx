@@ -9,7 +9,7 @@ import {
   FileText
 } from "lucide-react"
 
-const navItems = [
+export const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Siswa", href: "/students", icon: Users },
   { name: "Pembayaran Kas & Tabungan", href: "/payments", icon: Wallet },
@@ -22,7 +22,7 @@ export function Sidebar() {
   const location = useLocation()
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-card border-r flex flex-col transition-transform duration-300">
+    <aside className="hidden lg:flex fixed inset-y-0 left-0 z-50 w-64 bg-card border-r flex-col transition-transform duration-300">
       <div className="flex h-16 shrink-0 items-center px-6 border-b">
         <div className="flex items-center gap-3">
           <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
