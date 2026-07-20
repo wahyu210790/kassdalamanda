@@ -39,8 +39,7 @@ export function Login() {
 
     try {
       // Create CSRF cookie first for Sanctum
-      const csrfUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '/sanctum/csrf-cookie') : 'http://localhost:8000/sanctum/csrf-cookie';
-      await api.get(csrfUrl);
+      await api.get('https://api.storytech.id/sanctum/csrf-cookie');
       
       const response = await api.post('/login', data);
       const { access_token, admin } = response.data;
