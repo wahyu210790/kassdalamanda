@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Student;
 use App\Models\AcademicYear;
+use App\Services\DashboardService;
 use Illuminate\Http\Request;
 
 class PublicController extends Controller
 {
+    public function __construct(private DashboardService $dashboardService) {}
+
     public function searchStudent(Request $request)
     {
         $query = $request->query('query');
@@ -47,6 +50,28 @@ class PublicController extends Controller
 
         return response()->json([
             'data' => $students
+        ]);
+    }
+
+    public function getSummary()
+    {
+        $activeYear = AcademicYear::where('is_active', true)->first();
+        if (!$activeYear) {
+            return response()->json([
+                'message' => 'Tidak ada tahun ajaran aktif.'
+            ], 400);
+        }
+
+        $summary = $this->dashboardService->getSummary($activeYear->id);
+
+        // Hanya kembalikan data global yang relevan (Transparansi Publik)
+        return response()->json([
+            'data' => [
+                'cash_balance' => $summary['cash_balance'],
+                'saving_balance' => $summary['saving_balance'],
+                'total_expense' => $summary['cash_expense'] + $summary['saving_expense'],
+                'student_count' => $summary['student_count'],
+            ]
         ]);
     }
 }

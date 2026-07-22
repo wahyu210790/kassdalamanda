@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\PublicController;
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::prefix('public')->group(function () {
+    Route::get('/dashboard/summary', [PublicController::class, 'getSummary']);
     Route::get('/students/search', [PublicController::class, 'searchStudent']);
 });
 

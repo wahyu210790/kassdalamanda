@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Search, Loader2, Info, CheckCircle2, XCircle } from "lucide-react"
+import { Search, Loader2, Info, CheckCircle2, XCircle, Wallet, PiggyBank, TrendingDown, Users } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -17,6 +17,13 @@ interface StudentSummary {
     kas_months: number[];
     saving_months: number[];
   };
+}
+
+interface GlobalSummary {
+  cash_balance: number;
+  saving_balance: number;
+  total_expense: number;
+  student_count: number;
 }
 
 const MONTHS = [
@@ -37,6 +44,14 @@ export function PublicDashboard() {
     },
     enabled: queryTerm.length >= 3,
     retry: false
+  });
+
+  const { data: summaryData, isLoading: isLoadingSummary } = useQuery({
+    queryKey: ['public-dashboard-summary'],
+    queryFn: async () => {
+      const res = await api.get('/public/dashboard/summary');
+      return res.data.data as GlobalSummary;
+    }
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -62,6 +77,59 @@ export function PublicDashboard() {
           Masukkan nama siswa untuk melihat transparansi status pembayaran uang kas dan total tabungan kelas.
         </p>
       </div>
+
+      {/* Global Summary Cards - Mobile First Grid */}
+      {!isLoadingSummary && summaryData && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 px-2 sm:px-0">
+          <Card className="bg-card shadow-sm border-blue-100 dark:border-blue-900/30">
+            <CardContent className="p-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
+                <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground">Saldo Kas</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(summaryData.cash_balance)}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card shadow-sm border-emerald-100 dark:border-emerald-900/30">
+            <CardContent className="p-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
+              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full">
+                <PiggyBank className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground">Saldo Tabungan</p>
+                <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summaryData.saving_balance)}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card shadow-sm border-rose-100 dark:border-rose-900/30">
+            <CardContent className="p-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
+              <div className="p-2 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full">
+                <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground">Pengeluaran</p>
+                <p className="text-lg sm:text-2xl font-bold text-rose-600 dark:text-rose-400">{formatCurrency(summaryData.total_expense)}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card shadow-sm border-purple-100 dark:border-purple-900/30">
+            <CardContent className="p-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground">Siswa Aktif</p>
+                <p className="text-lg sm:text-2xl font-bold text-purple-600 dark:text-purple-400">{summaryData.student_count}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card className="shadow-lg border-primary/20 mx-2 sm:mx-0">
         <CardContent className="pt-6">
