@@ -25,11 +25,12 @@ class StorePaymentRequest extends FormRequest
         return [
             'student_id' => ['required', 'exists:students,id'],
             'academic_year_id' => ['required', 'exists:academic_years,id'],
-            'payment_type' => ['required', 'in:cash,saving,both'],
             'payment_date' => ['required', 'date'],
             'note' => ['nullable', 'string'],
             'months' => ['required', 'array', 'min:1'],
-            'months.*' => ['integer', 'between:1,12'],
+            'months.*.month' => ['required', 'integer', 'between:1,12'],
+            'months.*.year' => ['required', 'integer'],
+            'months.*.payment_type' => ['required', 'in:cash,saving'],
         ];
     }
 }

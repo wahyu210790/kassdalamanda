@@ -17,65 +17,45 @@ class PaymentService
             $cashNominal = (int) Setting::get('monthly_cash_amount', 10000);
             $savingNominal = (int) Setting::get('monthly_saving_amount', 5000);
             
-            $paymentType = PaymentType::from($data['payment_type']);
-            $months = $data['months'];
+            $monthsData = $data['months'];
             $totalAmount = 0;
             
-            // Cek pembayaran ganda
-            $existing = PaymentMonth::where('student_id', $data['student_id'])
-                ->where('academic_year_id', $data['academic_year_id'])
-                ->whereIn('month', $months)
-                ->when($paymentType !== PaymentType::Both, function($q) use ($paymentType) {
-                    return $q->where('payment_type', $paymentType);
-                })
-                ->exists();
-
-            if ($existing) {
-                throw new Exception("Salah satu bulan yang dipilih sudah lunas.");
+            // Check existing
+            foreach ($monthsData as $m) {
+                $existing = PaymentMonth::where('student_id', $data['student_id'])
+                    ->where('academic_year_id', $data['academic_year_id'])
+                    ->where('month', $m['month'])
+                    ->where('payment_type', $m['payment_type'])
+                    ->exists();
+                if ($existing) throw new Exception("Bulan " . $m['month'] . " (" . $m['payment_type'] . ") sudah lunas.");
+                
+                if ($m['payment_type'] === 'cash') $totalAmount += $cashNominal;
+                if ($m['payment_type'] === 'saving') $totalAmount += $savingNominal;
             }
 
-            // Hitung total amount
-            $monthCount = count($months);
-            if ($paymentType === PaymentType::Cash) {
-                $totalAmount = $monthCount * $cashNominal;
-            } elseif ($paymentType === PaymentType::Saving) {
-                $totalAmount = $monthCount * $savingNominal;
-            } else {
-                $totalAmount = $monthCount * ($cashNominal + $savingNominal);
-            }
+            // Determine overall payment type
+            $hasCash = collect($monthsData)->contains('payment_type', 'cash');
+            $hasSaving = collect($monthsData)->contains('payment_type', 'saving');
+            $overallType = ($hasCash && $hasSaving) ? PaymentType::Both : ($hasCash ? PaymentType::Cash : PaymentType::Saving);
 
             $payment = Payment::create([
                 'student_id' => $data['student_id'],
                 'admin_id' => $adminId,
-                'payment_type' => $paymentType,
+                'payment_type' => $overallType,
                 'payment_date' => $data['payment_date'],
                 'note' => $data['note'] ?? null,
                 'total_amount' => $totalAmount,
             ]);
 
-            // Insert payment months
-            foreach ($months as $month) {
-                if ($paymentType === PaymentType::Cash || $paymentType === PaymentType::Both) {
-                    PaymentMonth::create([
-                        'payment_id' => $payment->id,
-                        'student_id' => $data['student_id'],
-                        'academic_year_id' => $data['academic_year_id'],
-                        'payment_type' => PaymentType::Cash,
-                        'month' => $month,
-                        'amount' => $cashNominal,
-                    ]);
-                }
-                
-                if ($paymentType === PaymentType::Saving || $paymentType === PaymentType::Both) {
-                    PaymentMonth::create([
-                        'payment_id' => $payment->id,
-                        'student_id' => $data['student_id'],
-                        'academic_year_id' => $data['academic_year_id'],
-                        'payment_type' => PaymentType::Saving,
-                        'month' => $month,
-                        'amount' => $savingNominal,
-                    ]);
-                }
+            foreach ($monthsData as $m) {
+                PaymentMonth::create([
+                    'payment_id' => $payment->id,
+                    'student_id' => $data['student_id'],
+                    'academic_year_id' => $data['academic_year_id'],
+                    'payment_type' => PaymentType::from($m['payment_type']),
+                    'month' => $m['month'],
+                    'amount' => $m['payment_type'] === 'cash' ? $cashNominal : $savingNominal,
+                ]);
             }
 
             activity()

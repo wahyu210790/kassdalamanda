@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Loader2, Info } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
   const queryClient = useQueryClient();
   const [selectedStudent, setSelectedStudent] = useState<string>("");
   const [selectedMonths, setSelectedMonths] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch Students
   const { data: students = [] } = useQuery({
@@ -31,6 +33,10 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
     },
     enabled: isOpen
   });
+
+  const filteredStudents = students.filter((s: any) => 
+    s.student_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Fetch Student's Unpaid Details (Settings & Paid Months)
   const { data: studentDetails, isLoading: detailsLoading } = useQuery({
@@ -69,6 +75,7 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
   const handleClose = () => {
     setSelectedStudent("");
     setSelectedMonths([]);
+    setSearchQuery("");
     onClose();
   };
 
@@ -144,16 +151,26 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
         <div className="space-y-6 py-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Pilih Siswa</label>
+            <Input 
+              placeholder="🔍 Ketik nama siswa untuk memfilter..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-muted/30 mb-2"
+            />
             <Select value={selectedStudent} onValueChange={setSelectedStudent} disabled={mutation.isPending}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih siswa..." />
               </SelectTrigger>
               <SelectContent>
-                {students.map((student: any) => (
-                  <SelectItem key={student.id} value={student.id.toString()}>
-                    {student.student_name}
-                  </SelectItem>
-                ))}
+                {filteredStudents.length > 0 ? (
+                  filteredStudents.map((student: any) => (
+                    <SelectItem key={student.id} value={student.id.toString()}>
+                      {student.student_name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="p-4 text-sm text-center text-muted-foreground">Siswa tidak ditemukan</div>
+                )}
               </SelectContent>
             </Select>
           </div>
