@@ -21,6 +21,27 @@ Route::prefix('public')->group(function () {
     Route::get('/students/search', [PublicController::class, 'searchStudent']);
 });
 
+Route::get('/test-payment', function() {
+    $data = [
+        'student_id' => \App\Models\Student::first()->id ?? 1,
+        'academic_year_id' => 1,
+        'payment_date' => '2026-07-23',
+        'months' => [
+            ['month' => 7, 'year' => 2026, 'payment_type' => 'cash']
+        ]
+    ];
+    try {
+        app(\App\Services\PaymentService::class)->createPayment($data, 1);
+        return response()->json(['message' => 'Success']);
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ], 500);
+    }
+});
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);

@@ -27,7 +27,11 @@ class PaymentService
                     ->where('month', $m['month'])
                     ->where('payment_type', $m['payment_type'])
                     ->exists();
-                if ($existing) throw new Exception("Bulan " . $m['month'] . " (" . $m['payment_type'] . ") sudah lunas.");
+                if ($existing) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'months' => "Bulan " . $m['month'] . " (" . $m['payment_type'] . ") sudah lunas."
+                    ]);
+                }
                 
                 if ($m['payment_type'] === 'cash') $totalAmount += $cashNominal;
                 if ($m['payment_type'] === 'saving') $totalAmount += $savingNominal;
