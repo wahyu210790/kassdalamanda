@@ -62,13 +62,20 @@ class PaymentService
                 ]);
             }
 
+            return $payment;
+        });
+        
+        // Log activity outside of transaction
+        try {
             activity()
                 ->performedOn($payment)
                 ->causedBy($adminId)
                 ->log("Admin membuat pembayaran");
-
-            return $payment;
-        });
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Activity log failed: ' . $e->getMessage());
+        }
+        
+        return $payment;
     }
 
     public function deletePayment(Payment $payment, int $adminId): void

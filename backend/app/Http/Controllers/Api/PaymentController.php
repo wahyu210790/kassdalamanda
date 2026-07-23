@@ -29,12 +29,27 @@ class PaymentController extends Controller
 
     public function store(StorePaymentRequest $request)
     {
-        $payment = $this->service->createPayment(
-            $request->validated(), 
-            $request->user()->id
-        );
-        
-        return new PaymentResource($payment->load(['student', 'paymentMonths']));
+        try {
+            $payment = $this->service->createPayment(
+                $request->validated(), 
+                $request->user()->id
+            );
+            
+            return new PaymentResource($payment->load(['student', 'paymentMonths']));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Payment store error: ' . $e->getMessage(), [
+                'data' => $request->validated(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'message' => 'Gagal menyimpan pembayaran: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show(Payment $payment)

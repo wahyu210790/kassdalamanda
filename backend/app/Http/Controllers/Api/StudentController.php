@@ -39,7 +39,7 @@ class StudentController extends Controller
 
     public function show(Student $student)
     {
-        $student->load(['paymentMonths', 'payments']);
+        $student->load(['paymentMonths', 'payments.paymentMonths']);
         
         // Cukup simpel untuk MVP
         $student->summary = [
