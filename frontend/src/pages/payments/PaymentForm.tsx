@@ -151,17 +151,20 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
         <div className="space-y-6 py-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Pilih Siswa</label>
-            <Input 
-              placeholder="🔍 Ketik nama siswa untuk memfilter..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-muted/30 mb-2"
-            />
             <Select value={selectedStudent} onValueChange={setSelectedStudent} disabled={mutation.isPending}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih siswa..." />
               </SelectTrigger>
               <SelectContent>
+                <div className="p-2 pb-1 sticky top-0 bg-popover z-10">
+                  <Input 
+                    placeholder="🔍 Cari nama siswa..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className="h-8"
+                  />
+                </div>
                 {filteredStudents.length > 0 ? (
                   filteredStudents.map((student: any) => (
                     <SelectItem key={student.id} value={student.id.toString()}>
@@ -250,8 +253,17 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
                   </div>
                   
                   {mutation.isError && (
-                    <div className="p-3 text-sm rounded-lg bg-destructive/15 text-destructive border border-destructive/20">
-                      Terjadi kesalahan saat menyimpan transaksi.
+                    <div className="p-3 text-sm rounded-lg bg-destructive/15 text-destructive border border-destructive/20 break-words">
+                      Terjadi kesalahan: {
+                        (mutation.error as any)?.response?.data?.message || 
+                        (mutation.error as any)?.message || 
+                        "Kesalahan tidak diketahui"
+                      }
+                      {(mutation.error as any)?.response?.data?.errors && (
+                        <div className="mt-2 text-xs">
+                          {JSON.stringify((mutation.error as any).response.data.errors)}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
