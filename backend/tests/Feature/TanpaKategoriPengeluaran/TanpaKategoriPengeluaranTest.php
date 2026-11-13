@@ -373,4 +373,179 @@ class TanpaKategoriPengeluaranTest extends TestCase
         ])->assertStatus(422)
           ->assertJsonPath('message', 'Nominal melebihi Sisa.');
     }
+
+    public function test_08_aturan_panjang_keterangan_min_3_max_200_pada_post_dan_put(): void
+    {
+        $admin = $this->createAdmin();
+        $ay = $this->createAcademicYear();
+        $this->initSettings();
+
+        Sanctum::actingAs($admin);
+
+        // Siapkan saldo pemasukan tambahan fiktif 100.000
+        $this->postJson('/api/additional-incomes', [
+            'academic_year_id' => $ay->id,
+            'income_date' => '2026-08-01',
+            'description' => 'Dana Operasional Fiktif',
+            'amount' => 100000,
+        ])->assertSuccessful();
+
+        // 1) POST dengan title "ab" (2 karakter) -> 422 "Keterangan minimal 3 karakter."
+        $res2Char = $this->postJson('/api/expenses', [
+            'academic_year_id' => $ay->id,
+            'source' => 'additional_income',
+            'title' => 'ab',
+            'amount' => 5000,
+            'expense_date' => '2026-08-02',
+        ]);
+        $res2Char->assertStatus(422)
+            ->assertJsonPath('errors.title.0', 'Keterangan minimal 3 karakter.');
+        $this->assertDatabaseCount('expenses', 0);
+
+        // 2) POST dengan title 1 karakter -> 422 "Keterangan minimal 3 karakter."
+        $res1Char = $this->postJson('/api/expenses', [
+            'academic_year_id' => $ay->id,
+            'source' => 'additional_income',
+            'title' => 'a',
+            'amount' => 5000,
+            'expense_date' => '2026-08-02',
+        ]);
+        $res1Char->assertStatus(422)
+            ->assertJsonPath('errors.title.0', 'Keterangan minimal 3 karakter.');
+        $this->assertDatabaseCount('expenses', 0);
+
+        // 3) POST dengan title tepat 3 karakter -> sukses, tersimpan
+        $res3Char = $this->postJson('/api/expenses', [
+            'academic_year_id' => $ay->id,
+            'source' => 'additional_income',
+            'title' => 'Pel',
+            'amount' => 5000,
+            'expense_date' => '2026-08-02',
+        ]);
+        $res3Char->assertSuccessful();
+        $expenseId = $res3Char->json('data.id');
+        $this->assertDatabaseHas('expenses', [
+            'id' => $expenseId,
+            'title' => 'Pel',
+        ]);
+
+        // 4) POST dengan title 201 karakter -> 422 "Keterangan maksimal 200 karakter."
+        $title201 = str_repeat('K', 201);
+        $res201Char = $this->postJson('/api/expenses', [
+            'academic_year_id' => $ay->id,
+            'source' => 'additional_income',
+            'title' => $title201,
+            'amount' => 5000,
+            'expense_date' => '2026-08-03',
+        ]);
+        $res201Char->assertStatus(422)
+            ->assertJsonPath('errors.title.0', 'Keterangan maksimal 200 karakter.');
+        $this->assertDatabaseCount('expenses', 1);
+
+        // 5) POST dengan title tepat 200 karakter -> sukses
+        $title200 = str_repeat('M', 200);
+        $res200Char = $this->postJson('/api/expenses', [
+            'academic_year_id' => $ay->id,
+            'source' => 'additional_income',
+            'title' => $title200,
+            'amount' => 5000,
+            'expense_date' => '2026-08-03',
+        ]);
+        $res200Char->assertSuccessful()
+            ->assertJsonPath('data.title', $title200);
+        $this->assertDatabaseCount('expenses', 2);
+
+        // 6) PUT ubah pengeluaran: title "ab" ditolak 422 pesan min; title 201 ditolak 422 pesan max
+        $this->putJson("/api/expenses/{$expenseId}", [
+            'source' => 'additional_income',
+            'title' => 'ab',
+            'amount' => 5000,
+            'expense_date' => '2026-08-02',
+        ])->assertStatus(422)
+          ->assertJsonPath('errors.title.0', 'Keterangan minimal 3 karakter.');
+
+        $this->putJson("/api/expenses/{$expenseId}", [
+            'source' => 'additional_income',
+            'title' => $title201,
+            'amount' => 5000,
+            'expense_date' => '2026-08-02',
+        ])->assertStatus(422)
+          ->assertJsonPath('errors.title.0', 'Keterangan maksimal 200 karakter.');
+    }
+
+    public function test_09_down_migrasi_category_id_melempar_exception_jika_masih_ada_null(): void
+    {
+        $admin = $this->createAdmin();
+        $ay = $this->createAcademicYear();
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/additional-incomes', [
+            'academic_year_id' => $ay->id,
+            'income_date' => '2026-08-01',
+            'description' => 'Dana Tes Migrasi Fiktif',
+            'amount' => 30000,
+        ])->assertSuccessful();
+
+        $createRes = $this->postJson('/api/expenses', [
+            'academic_year_id' => $ay->id,
+            'source' => 'additional_income',
+            'title' => 'Beli Penghapus Papan',
+            'amount' => 10000,
+            'expense_date' => '2026-08-02',
+        ]);
+        $createRes->assertSuccessful();
+        $expenseId = $createRes->json('data.id');
+
+        $migration = require base_path('database/migrations/2026_11_13_000002_make_expenses_category_id_nullable.php');
+
+        // 7) Panggil down() saat masih ada category_id null -> harus melempar RuntimeException
+        $thrown = null;
+        try {
+            $migration->down();
+        } catch (\RuntimeException $e) {
+            $thrown = $e;
+        }
+
+        $this->assertNotNull($thrown, 'Method down() harus melempar RuntimeException saat ada category_id null.');
+        $this->assertStringContainsString('tanpa kategori', $thrown->getMessage());
+        $this->assertStringContainsString('category_id', $thrown->getMessage());
+
+        // Baris pengeluaran tetap ada dan category_id tetap null
+        $this->assertDatabaseHas('expenses', [
+            'id' => $expenseId,
+            'title' => 'Beli Penghapus Papan',
+            'category_id' => null,
+        ]);
+
+        // Skema tetap nullable (bisa simpan pengeluaran baru tanpa kategori)
+        $this->postJson('/api/expenses', [
+            'academic_year_id' => $ay->id,
+            'source' => 'additional_income',
+            'title' => 'Beli Kapur Warna',
+            'amount' => 5000,
+            'expense_date' => '2026-08-03',
+        ])->assertSuccessful();
+
+        // 8) Kasus tanpa baris NULL: down() tidak melempar
+        $cat = ExpenseCategory::create(['name' => 'Perlengkapan Fiktif']);
+        \Illuminate\Support\Facades\DB::table('expenses')->update(['category_id' => $cat->id]);
+
+        $migration->down();
+        $migration->up();
+    }
+
+    public function test_10_ringkasan_galat_validasi_berbahasa_indonesia_tanpa_more_errors(): void
+    {
+        $admin = $this->createAdmin();
+        Sanctum::actingAs($admin);
+
+        $res = $this->postJson('/api/expenses', []);
+
+        $res->assertStatus(422);
+        $message = (string) $res->json('message');
+        $this->assertNotEmpty($message);
+        $this->assertStringNotContainsString('more error', $message);
+        $this->assertStringContainsString('kesalahan lain', $message);
+    }
 }
