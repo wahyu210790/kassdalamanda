@@ -3,9 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Wallet, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/axios';
+import api, { csrfCookieURL } from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -39,7 +39,7 @@ export function Login() {
 
     try {
       // Create CSRF cookie first for Sanctum
-      await api.get('https://api.storytech.id/sanctum/csrf-cookie');
+      await api.get(csrfCookieURL);
       
       const response = await api.post('/login', data);
       const { access_token, admin } = response.data;
