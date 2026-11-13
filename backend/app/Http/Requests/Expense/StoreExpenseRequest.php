@@ -29,7 +29,7 @@ class StoreExpenseRequest extends FormRequest
             'academic_year_id' => ['required', 'exists:academic_years,id'],
             'category_id' => ['nullable', 'exists:expense_categories,id'],
             'source' => ['required', 'in:cash,saving,additional_income'],
-            'title' => ['required', 'string', 'max:200'],
+            'title' => ['required', 'string', 'min:3', 'max:200'],
             'amount' => ['required', 'integer', 'gt:0', 'max:1000000000'],
             'expense_date' => ['required', 'date'],
             'description' => ['nullable', 'string'],
@@ -40,6 +40,8 @@ class StoreExpenseRequest extends FormRequest
     {
         return array_merge($this->pesanDasarIndonesia(), [
             'title.required' => 'Keterangan wajib diisi.',
+            'title.min' => 'Keterangan minimal 3 karakter.',
+            'title.max' => 'Keterangan maksimal 200 karakter.',
             'category_id.exists' => 'Kategori tidak ditemukan.',
             'source.required' => 'Diambil dari wajib dipilih.',
             'source.in' => 'Diambil dari tidak valid.',

@@ -19,7 +19,8 @@ const expenseSchema = z.object({
     .string()
     .trim()
     .min(1, "Keterangan wajib diisi.")
-    .min(3, "Keterangan minimal 3 karakter."),
+    .min(3, "Keterangan minimal 3 karakter.")
+    .max(200, "Keterangan maksimal 200 karakter."),
   description: z.string().optional(),
   amount: z
     .number({ message: "Nominal harus lebih dari 0." })
@@ -202,8 +203,9 @@ export function ExpenseForm({
               Keterangan (untuk apa uangnya) <span className="text-destructive">*</span>
             </label>
             <Input 
-              placeholder="Contoh: Beli Sapu Kelas" 
+              placeholder="Contoh: Beli sapu dan pel kelas" 
               {...register('title')} 
+              maxLength={200}
               className={errors.title ? 'border-destructive' : ''}
               disabled={mutation.isPending}
             />
