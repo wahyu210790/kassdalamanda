@@ -32,6 +32,11 @@ class AcademicYear extends Model
         return $this->hasMany(Expense::class);
     }
 
+    public function additionalIncomes(): HasMany
+    {
+        return $this->hasMany(AdditionalIncome::class);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
