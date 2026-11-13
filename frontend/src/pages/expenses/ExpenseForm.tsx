@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
@@ -11,18 +11,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn, formatRupiah, labelDompet, tanggalHariIniWIB } from '@/lib/utils';
 
 const expenseSchema = z.object({
-  title: z.string().min(3, "Judul minimal 3 karakter"),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Keterangan wajib diisi.")
+    .min(3, "Keterangan minimal 3 karakter."),
   description: z.string().optional(),
   amount: z
     .number({ message: "Nominal harus lebih dari 0." })
     .min(1, "Nominal harus lebih dari 0.")
     .max(1000000000, "Nominal maksimal Rp 1.000.000.000."),
   expense_date: z.string().min(1, "Tanggal wajib diisi"),
-  category_id: z.number({ message: "Kategori wajib dipilih." }).min(1, "Kategori wajib dipilih."),
   source: z.enum(['cash', 'saving', 'additional_income'], {
     message: "Diambil dari wajib dipilih.",
   }),
@@ -33,13 +36,13 @@ type ExpenseFormValues = z.infer<typeof expenseSchema>;
 export interface ExpenseItem {
   id: number;
   academic_year_id?: number;
-  category_id?: number;
+  category_id?: number | null;
   title: string;
   description: string | null;
   amount: number;
   expense_date: string;
   source: 'cash' | 'saving' | 'additional_income';
-  category: string;
+  category?: string | null;
 }
 
 export interface WalletsSummary {
@@ -66,15 +69,6 @@ export function ExpenseForm({
   const queryClient = useQueryClient();
   const [errorMsg, setErrorMsg] = useState('');
 
-  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
-    queryKey: ['expense-categories'],
-    queryFn: async () => {
-      const response = await api.get('/expense-categories');
-      return response.data.data;
-    },
-    enabled: isOpen
-  });
-
   const {
     register,
     handleSubmit,
@@ -93,17 +87,11 @@ export function ExpenseForm({
     if (isOpen) {
       setErrorMsg('');
       if (editingExpense) {
-        let resolvedCategoryId = editingExpense.category_id;
-        if (!resolvedCategoryId && categories.length > 0 && editingExpense.category) {
-          const found = categories.find((c: any) => c.name === editingExpense.category);
-          if (found) resolvedCategoryId = found.id;
-        }
         reset({
           title: editingExpense.title,
           description: editingExpense.description || '',
           amount: editingExpense.amount,
           expense_date: editingExpense.expense_date.slice(0, 10),
-          category_id: resolvedCategoryId || 0,
           source: editingExpense.source,
         });
       } else {
@@ -112,15 +100,13 @@ export function ExpenseForm({
           description: '',
           amount: undefined as unknown as number,
           expense_date: tanggalHariIniWIB(),
-          category_id: undefined as unknown as number,
           source: undefined as unknown as ExpenseFormValues['source'],
         });
       }
     }
-  }, [isOpen, editingExpense, categories, reset]);
+  }, [isOpen, editingExpense, reset]);
 
   const watchSource = watch('source');
-  const watchCategoryId = watch('category_id');
   const watchAmount = watch('amount');
 
   const rawWalletSisa = watchSource ? (walletsSummary?.[watchSource]?.sisa ?? 0) : 0;
@@ -198,8 +184,6 @@ export function ExpenseForm({
     onClose();
   };
 
-  const hasNoCategories = !isCategoriesLoading && categories.length === 0;
-
   return (
     <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[500px]">
@@ -212,23 +196,16 @@ export function ExpenseForm({
           </DialogDescription>
         </DialogHeader>
 
-        {hasNoCategories && (
-          <div className="p-3 text-sm rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-200 border border-amber-500/30 flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
-            <div>Belum ada kategori pengeluaran. Kategori perlu ditambahkan dulu sebelum mencatat pengeluaran.</div>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              Judul / Keperluan <span className="text-destructive">*</span>
+              Keterangan (untuk apa uangnya) <span className="text-destructive">*</span>
             </label>
             <Input 
               placeholder="Contoh: Beli Sapu Kelas" 
               {...register('title')} 
               className={errors.title ? 'border-destructive' : ''}
-              disabled={hasNoCategories || mutation.isPending}
+              disabled={mutation.isPending}
             />
             {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
           </div>
@@ -246,7 +223,7 @@ export function ExpenseForm({
                   (errors.amount || isOverBalance) &&
                     'border-destructive focus-visible:ring-destructive bg-destructive/5'
                 )}
-                disabled={hasNoCategories || mutation.isPending}
+                disabled={mutation.isPending}
               />
               {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
               {isOverBalance && (
@@ -262,92 +239,70 @@ export function ExpenseForm({
                 type="date"
                 {...register('expense_date')} 
                 className={errors.expense_date ? 'border-destructive' : ''}
-                disabled={hasNoCategories || mutation.isPending}
+                disabled={mutation.isPending}
               />
               {errors.expense_date && <p className="text-xs text-destructive">{errors.expense_date.message}</p>}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Kategori <span className="text-destructive">*</span>
-              </label>
-              <Select 
-                value={watchCategoryId ? watchCategoryId.toString() : ''} 
-                onValueChange={(val: string) => setValue('category_id', parseInt(val, 10), { shouldValidate: true })}
-                disabled={hasNoCategories || mutation.isPending}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Diambil dari <span className="text-destructive">*</span>
+            </label>
+            <Select 
+              value={watchSource || ''} 
+              onValueChange={(val: 'cash' | 'saving' | 'additional_income') =>
+                setValue('source', val, { shouldValidate: true })
+              }
+              disabled={mutation.isPending}
+            >
+              <SelectTrigger
+                className={cn(
+                  'w-full',
+                  errors.source && 'border-destructive',
+                  isOverBalance && 'border-destructive ring-1 ring-destructive bg-destructive/5'
+                )}
               >
-                <SelectTrigger className={errors.category_id ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Pilih..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.category_id && <p className="text-xs text-destructive">{errors.category_id.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Diambil dari <span className="text-destructive">*</span>
-              </label>
-              <Select 
-                value={watchSource || ''} 
-                onValueChange={(val: 'cash' | 'saving' | 'additional_income') =>
-                  setValue('source', val, { shouldValidate: true })
-                }
-                disabled={hasNoCategories || mutation.isPending}
+                <SelectValue placeholder="Pilih..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">Saldo Kas</SelectItem>
+                <SelectItem value="saving">Saldo Tabungan</SelectItem>
+                {showAdditionalIncomeOption && (
+                  <SelectItem
+                    value="additional_income"
+                    disabled={isAdditionalIncomeZeroDisabled}
+                  >
+                    {isAdditionalIncomeZeroDisabled
+                      ? 'Pemasukan tambahan (Sisa Rp 0)'
+                      : 'Pemasukan tambahan'}
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {errors.source && <p className="text-xs text-destructive">{errors.source.message}</p>}
+            {walletsSummary && watchSource && (
+              <div
+                className={cn(
+                  'text-xs px-2.5 py-1.5 rounded-md border flex items-center justify-between',
+                  isOverBalance
+                    ? 'border-destructive bg-destructive/10 text-destructive font-semibold'
+                    : 'border-border bg-muted/40 text-muted-foreground'
+                )}
               >
-                <SelectTrigger
-                  className={cn(
-                    errors.source && 'border-destructive',
-                    isOverBalance && 'border-destructive ring-1 ring-destructive bg-destructive/5'
-                  )}
-                >
-                  <SelectValue placeholder="Pilih..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Saldo Kas</SelectItem>
-                  <SelectItem value="saving">Saldo Tabungan</SelectItem>
-                  {showAdditionalIncomeOption && (
-                    <SelectItem
-                      value="additional_income"
-                      disabled={isAdditionalIncomeZeroDisabled}
-                    >
-                      {isAdditionalIncomeZeroDisabled
-                        ? 'Pemasukan tambahan (Sisa Rp 0)'
-                        : 'Pemasukan tambahan'}
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              {errors.source && <p className="text-xs text-destructive">{errors.source.message}</p>}
-              {walletsSummary && watchSource && (
-                <div
-                  className={cn(
-                    'text-xs px-2.5 py-1.5 rounded-md border flex items-center justify-between',
-                    isOverBalance
-                      ? 'border-destructive bg-destructive/10 text-destructive font-semibold'
-                      : 'border-border bg-muted/40 text-muted-foreground'
-                  )}
-                >
-                  <span>Sisa {labelDompet(watchSource)}:</span>
-                  <span className="font-semibold">{formatRupiah(availableSisa)}</span>
-                </div>
-              )}
-            </div>
+                <span>Sisa {labelDompet(watchSource)}:</span>
+                <span className="font-semibold">{formatRupiah(availableSisa)}</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Keterangan Tambahan (Opsional)</label>
+            <label className="text-sm font-medium">Catatan tambahan (opsional)</label>
             <Textarea 
               placeholder="Catatan tambahan..." 
               {...register('description')} 
               rows={3}
-              disabled={hasNoCategories || mutation.isPending}
+              disabled={mutation.isPending}
             />
           </div>
 
@@ -364,7 +319,7 @@ export function ExpenseForm({
             <Button 
               type="submit" 
               className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-              disabled={mutation.isPending || hasNoCategories || !watchSource || isOverBalance}
+              disabled={mutation.isPending || !watchSource || isOverBalance}
             >
               {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Simpan Pengeluaran

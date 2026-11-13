@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Wallet, Coins, Users, TrendingDown, Receipt, ArrowRight } from 'lucide-react';
-import { formatRupiah, formatTanggalIndonesia } from '@/lib/utils';
+import { formatRupiah, formatTanggalIndonesia, labelDompet } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 
 export function Dashboard() {
@@ -146,28 +146,22 @@ export function Dashboard() {
           <CardContent className="flex-1">
             {data?.recent_expenses?.length > 0 ? (
               <div className="space-y-4">
-                {data.recent_expenses.slice(0, 4).map((expense: any) => {
-                  const categoryName = typeof expense.category === 'object'
-                    ? (expense.category?.name || 'Umum')
-                    : (expense.category || 'Umum');
-
-                  return (
-                    <div key={expense.id} className="flex items-center">
-                      <div className="bg-rose-500/10 p-2 rounded-full mr-4">
-                        <Receipt className="w-4 h-4 text-rose-500" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium leading-none line-clamp-1">{expense.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatTanggalIndonesia(expense.expense_date)} • {categoryName}
-                        </p>
-                      </div>
-                      <div className="font-semibold text-sm text-rose-600">
-                        -{formatRupiah(expense.amount)}
-                      </div>
+                {data.recent_expenses.slice(0, 4).map((expense: any) => (
+                  <div key={expense.id} className="flex items-center">
+                    <div className="bg-rose-500/10 p-2 rounded-full mr-4">
+                      <Receipt className="w-4 h-4 text-rose-500" />
                     </div>
-                  );
-                })}
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none line-clamp-1">{expense.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatTanggalIndonesia(expense.expense_date)} • {labelDompet(expense.source)}
+                      </p>
+                    </div>
+                    <div className="font-semibold text-sm text-rose-600">
+                      -{formatRupiah(expense.amount)}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-center p-4">

@@ -322,9 +322,7 @@ export function PublicDashboard() {
                         </p>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                           <span>{formatTanggalIndonesia(exp.expense_date)}</span>
-                          {activeSheet === 'expenses' && (
-                            <span>• Diambil dari: {labelDompet(exp.source)}</span>
-                          )}
+                          <span>• Diambil dari: {labelDompet(exp.source)}</span>
                         </div>
                       </div>
                       <span className="text-sm font-semibold text-rose-600 dark:text-rose-400 shrink-0">

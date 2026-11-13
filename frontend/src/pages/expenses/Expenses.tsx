@@ -77,11 +77,14 @@ export function Expenses() {
     setIsFormOpen(true);
   };
 
-  const filteredExpenses = expenses.filter(e => 
-    e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (e.category && e.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    labelDompet(e.source).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredExpenses = expenses.filter((e) => {
+    const keyword = searchTerm.toLowerCase();
+    return (
+      e.title.toLowerCase().includes(keyword) ||
+      Boolean(e.description && e.description.toLowerCase().includes(keyword)) ||
+      labelDompet(e.source).toLowerCase().includes(keyword)
+    );
+  });
 
   const is404Year = (yearError as any)?.response?.status === 404;
 
@@ -183,7 +186,7 @@ export function Expenses() {
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
-              placeholder="Cari judul, kategori, atau dompet..." 
+              placeholder="Cari keterangan atau dompet..." 
               className="pl-9 bg-background"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -219,7 +222,7 @@ export function Expenses() {
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    {formatTanggalIndonesia(expense.expense_date)} · {expense.category || '-'}
+                    {formatTanggalIndonesia(expense.expense_date)} · {labelDompet(expense.source)}
                   </p>
 
                   {expense.description && (
@@ -267,8 +270,7 @@ export function Expenses() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Tanggal</TableHead>
-                    <TableHead>Judul</TableHead>
-                    <TableHead>Kategori</TableHead>
+                    <TableHead>Keterangan</TableHead>
                     <TableHead>Diambil dari</TableHead>
                     <TableHead className="text-right">Nominal</TableHead>
                     <TableHead className="text-right w-[140px]">Aksi</TableHead>
@@ -283,12 +285,11 @@ export function Expenses() {
                       <TableCell>
                         <div className="font-semibold">{expense.title}</div>
                         {expense.description && (
-                          <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                          <div className="text-xs text-muted-foreground truncate max-w-[260px]">
                             {expense.description}
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{expense.category || '-'}</TableCell>
                       <TableCell>
                         <Badge 
                           variant="outline" 
