@@ -11,6 +11,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: null,
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+      },
       devOptions: {
         enabled: true
       },
