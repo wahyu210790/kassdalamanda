@@ -62,25 +62,8 @@ class PublicController extends Controller
             ], 400);
         }
 
-        $summary = $this->dashboardService->getSummary($activeYear->id);
-
-        // Hanya kembalikan data global yang relevan (Transparansi Publik)
         return response()->json([
-            'data' => [
-                'cash_balance' => $summary['cash_balance'],
-                'saving_balance' => $summary['saving_balance'],
-                'total_expense' => $summary['cash_expense'] + $summary['saving_expense'],
-                'student_count' => $summary['student_count'],
-                'academic_year' => [
-                    'name' => $activeYear->name,
-                    'start_date' => $activeYear->start_date instanceof \DateTimeInterface
-                        ? $activeYear->start_date->format('Y-m-d')
-                        : (string) $activeYear->start_date,
-                    'end_date' => $activeYear->end_date instanceof \DateTimeInterface
-                        ? $activeYear->end_date->format('Y-m-d')
-                        : (string) $activeYear->end_date,
-                ],
-            ]
+            'data' => $this->dashboardService->getPublicSummary($activeYear),
         ]);
     }
 }
