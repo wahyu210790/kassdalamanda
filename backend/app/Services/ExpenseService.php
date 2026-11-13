@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AcademicYear;
 use App\Models\Expense;
 use App\Models\PaymentMonth;
 use App\Models\AdditionalIncome;
@@ -15,6 +16,11 @@ use Throwable;
 
 class ExpenseService
 {
+    public function kunciTahunAjaran(int $academicYearId): void
+    {
+        AcademicYear::whereKey($academicYearId)->lockForUpdate()->first();
+    }
+
     public function getWalletSummary(string $source, int $academicYearId): array
     {
         if ($source === ExpenseSource::AdditionalIncome->value) {
@@ -55,7 +61,10 @@ class ExpenseService
     public function createExpense(array $data, int $adminId): Expense
     {
         return DB::transaction(function () use ($data, $adminId) {
-            $balance = $this->getCurrentBalance($data['source'], (int) $data['academic_year_id']);
+            $academicYearId = (int) $data['academic_year_id'];
+            $this->kunciTahunAjaran($academicYearId);
+
+            $balance = $this->getCurrentBalance($data['source'], $academicYearId);
 
             if ((int) $data['amount'] > $balance) {
                 throw ValidationException::withMessages([
@@ -92,20 +101,27 @@ class ExpenseService
     {
         return DB::transaction(function () use ($expense, $data, $adminId) {
             $academicYearId = (int) $expense->academic_year_id;
+            $this->kunciTahunAjaran($academicYearId);
+
             $newSource = $data['source'];
             $oldSource = $expense->source instanceof ExpenseSource
                 ? $expense->source->value
                 : (string) $expense->source;
 
-            $targetSisa = $this->getCurrentBalance($newSource, $academicYearId);
-            $allowedBalance = ($newSource === $oldSource)
-                ? $targetSisa + (int) $expense->amount
-                : $targetSisa;
+            $newAmount = (int) $data['amount'];
+            $oldAmount = (int) $expense->amount;
 
-            if ((int) $data['amount'] > $allowedBalance) {
-                throw ValidationException::withMessages([
-                    'amount' => 'Nominal melebihi Sisa.',
-                ]);
+            if (!($newSource === $oldSource && $newAmount <= $oldAmount)) {
+                $targetSisa = $this->getCurrentBalance($newSource, $academicYearId);
+                $allowedBalance = ($newSource === $oldSource)
+                    ? $targetSisa + $oldAmount
+                    : $targetSisa;
+
+                if ($newAmount > $allowedBalance) {
+                    throw ValidationException::withMessages([
+                        'amount' => 'Nominal melebihi Sisa.',
+                    ]);
+                }
             }
 
             $expense->update([

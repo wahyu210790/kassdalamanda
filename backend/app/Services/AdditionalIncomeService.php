@@ -42,9 +42,12 @@ class AdditionalIncomeService
     public function update(AdditionalIncome $income, array $data, int $adminId): AdditionalIncome
     {
         return DB::transaction(function () use ($income, $data, $adminId) {
+            $academicYearId = (int) $income->academic_year_id;
+            $this->expenseService->kunciTahunAjaran($academicYearId);
+
             $summary = $this->expenseService->getWalletSummary(
                 ExpenseSource::AdditionalIncome->value,
-                (int) $income->academic_year_id
+                $academicYearId
             );
 
             $newTerkumpul = $summary['terkumpul'] - (int) $income->amount + (int) $data['amount'];
@@ -78,9 +81,12 @@ class AdditionalIncomeService
     public function delete(AdditionalIncome $income, int $adminId): void
     {
         DB::transaction(function () use ($income, $adminId) {
+            $academicYearId = (int) $income->academic_year_id;
+            $this->expenseService->kunciTahunAjaran($academicYearId);
+
             $summary = $this->expenseService->getWalletSummary(
                 ExpenseSource::AdditionalIncome->value,
-                (int) $income->academic_year_id
+                $academicYearId
             );
 
             $newTerkumpul = $summary['terkumpul'] - (int) $income->amount;

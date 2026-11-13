@@ -35,6 +35,7 @@ export function Payments() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const { 
     data: tahunAjaran, 
@@ -56,12 +57,23 @@ export function Payments() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/payments/${id}`),
     onSuccess: () => {
+      setDeleteError('');
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['wallets-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['public-dashboard-summary'] });
+    },
+    onError: (err: any) => {
+      if (err.response?.status === 422) {
+        setDeleteError(err.response.data?.message || 'Sisa tidak cukup.');
+      } else {
+        setDeleteError(err.response?.data?.message || 'Gagal membatalkan pembayaran.');
+      }
     }
   });
 
   const handleDelete = (id: number, name: string) => {
+    setDeleteError('');
     if (window.confirm(`Yakin ingin membatalkan/menghapus transaksi dari ${name}? Ini akan mengurangi saldo kas/tabungan.`)) {
       deleteMutation.mutate(id);
     }
@@ -100,6 +112,12 @@ export function Payments() {
           {is404Year 
             ? "Belum ada tahun ajaran aktif. Aktifkan tahun ajaran dulu." 
             : "Gagal memuat tahun ajaran. Coba muat ulang halaman."}
+        </div>
+      )}
+
+      {deleteError && (
+        <div className="p-4 rounded-xl bg-destructive/15 text-destructive border border-destructive/20 text-sm font-medium">
+          {deleteError}
         </div>
       )}
 

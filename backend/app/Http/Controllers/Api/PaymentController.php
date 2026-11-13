@@ -47,7 +47,7 @@ class PaymentController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return response()->json([
-                'message' => 'Gagal menyimpan pembayaran: ' . $e->getMessage()
+                'message' => 'Gagal menyimpan pembayaran.'
             ], 500);
         }
     }

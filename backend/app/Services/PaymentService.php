@@ -16,6 +16,8 @@ use Throwable;
 
 class PaymentService
 {
+    public function __construct(private ExpenseService $expenseService) {}
+
     private const MONTH_NAMES = [
         1 => 'Januari',
         2 => 'Februari',
@@ -33,6 +35,17 @@ class PaymentService
 
     public function createPayment(array $data, int $adminId): Payment
     {
+        $seenMonths = [];
+        foreach ($data['months'] as $m) {
+            $key = $m['month'] . ':' . $m['payment_type'];
+            if (isset($seenMonths[$key])) {
+                throw ValidationException::withMessages([
+                    'months' => 'Bulan yang sama dipilih dua kali.',
+                ]);
+            }
+            $seenMonths[$key] = true;
+        }
+
         // 1. Validasi: cek apakah ada bulan yang sudah pernah dibayar
         foreach ($data['months'] as $m) {
             $isPaid = PaymentMonth::where('student_id', $data['student_id'])
@@ -105,6 +118,41 @@ class PaymentService
     public function deletePayment(Payment $payment, int $adminId): void
     {
         DB::transaction(function () use ($payment, $adminId) {
+            $months = $payment->paymentMonths()->get();
+
+            $yearIds = $months->pluck('academic_year_id')
+                ->push($payment->academic_year_id)
+                ->filter()
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->sort()
+                ->values();
+
+            foreach ($yearIds as $yearId) {
+                $this->expenseService->kunciTahunAjaran($yearId);
+            }
+
+            $groupedByYear = $months->groupBy(fn($m) => (int) $m->academic_year_id);
+            foreach ($groupedByYear as $yearId => $yearMonths) {
+                $groupedByType = $yearMonths->groupBy(function ($m) {
+                    return $m->payment_type instanceof \BackedEnum
+                        ? $m->payment_type->value
+                        : (string) $m->payment_type;
+                });
+
+                foreach ($groupedByType as $type => $typeMonths) {
+                    $amountToDeduct = (int) $typeMonths->sum('amount');
+                    $sisaSekarang = $this->expenseService->getWalletSummary((string) $type, (int) $yearId)['sisa'];
+                    $sisaBaru = $sisaSekarang - $amountToDeduct;
+
+                    if ($sisaBaru < 0) {
+                        throw ValidationException::withMessages([
+                            'payment' => 'Sisa tidak cukup.',
+                        ]);
+                    }
+                }
+            }
+
             $payment->paymentMonths()->delete();
             $payment->delete();
             
