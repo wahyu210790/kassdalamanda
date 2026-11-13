@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Loader2, Info, Check } from 'lucide-react';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, tanggalHariIniWIB } from '@/lib/utils';
 import { daftarBulanTahunAjaran } from '@/lib/tahunAjaran';
 import { useTahunAjaranAktif } from '@/hooks/useTahunAjaranAktif';
 
@@ -105,7 +105,7 @@ export function PaymentForm({ isOpen, onClose, academicYearId: propYearId, start
       const payload = {
         student_id: selectedStudent,
         academic_year_id: effectiveYearId,
-        payment_date: new Date().toISOString().split('T')[0],
+        payment_date: tanggalHariIniWIB(),
         months: validMonths
       };
       const response = await api.post(`/payments`, payload);

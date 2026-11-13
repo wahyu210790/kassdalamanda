@@ -188,45 +188,62 @@ export function AdditionalIncomes() {
           <>
             {/* Tampilan Kartu di HP */}
             <div className="divide-y md:hidden">
-              {items.map((item) => (
-                <div key={item.id} className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1 min-w-0">
-                      <p className="font-semibold text-foreground break-words">
-                        {item.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatTanggalIndonesia(item.income_date)}
-                      </p>
+              {items.map((item) => {
+                const isCannotDelete =
+                  walletSummary.terkumpul - item.amount < walletSummary.dipakai;
+
+                return (
+                  <div key={item.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <p className="font-semibold text-foreground break-words">
+                          {item.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTanggalIndonesia(item.income_date)}
+                        </p>
+                      </div>
+                      <span className="font-bold text-purple-700 dark:text-purple-300 shrink-0">
+                        {formatRupiah(item.amount)}
+                      </span>
                     </div>
-                    <span className="font-bold text-purple-700 dark:text-purple-300 shrink-0">
-                      {formatRupiah(item.amount)}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 pt-1">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="min-h-[44px] min-w-[44px] px-3"
+                          onClick={() => handleOpenEdit(item)}
+                        >
+                          <Pencil className="w-4 h-4 mr-1.5" />
+                          Ubah
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isCannotDelete}
+                          title={isCannotDelete ? 'Sisa tidak cukup.' : 'Hapus'}
+                          aria-label={
+                            isCannotDelete ? 'Hapus (Sisa tidak cukup.)' : 'Hapus'
+                          }
+                          className="min-h-[44px] min-w-[44px] px-3 text-rose-600 border-rose-200 hover:bg-rose-50"
+                          onClick={() => handleOpenDelete(item)}
+                        >
+                          <Trash className="w-4 h-4 mr-1.5" />
+                          Hapus
+                        </Button>
+                      </div>
+                      {isCannotDelete && (
+                        <span className="text-xs text-destructive font-medium">
+                          Sisa tidak cukup.
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-[44px] min-w-[44px] px-3"
-                      onClick={() => handleOpenEdit(item)}
-                    >
-                      <Pencil className="w-4 h-4 mr-1.5" />
-                      Ubah
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-[44px] min-w-[44px] px-3 text-rose-600 border-rose-200 hover:bg-rose-50"
-                      onClick={() => handleOpenDelete(item)}
-                    >
-                      <Trash className="w-4 h-4 mr-1.5" />
-                      Hapus
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Tampilan Tabel di Desktop */}
@@ -237,45 +254,62 @@ export function AdditionalIncomes() {
                     <TableHead className="w-[150px]">Tanggal</TableHead>
                     <TableHead>Keterangan</TableHead>
                     <TableHead className="text-right">Jumlah</TableHead>
-                    <TableHead className="text-right w-[180px]">Aksi</TableHead>
+                    <TableHead className="text-right w-[220px]">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {formatTanggalIndonesia(item.income_date)}
-                      </TableCell>
-                      <TableCell className="font-medium">{item.description}</TableCell>
-                      <TableCell className="text-right font-bold text-purple-700 dark:text-purple-300">
-                        {formatRupiah(item.amount)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="inline-flex items-center justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9 px-3"
-                            onClick={() => handleOpenEdit(item)}
-                          >
-                            <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                            Ubah
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9 px-3 text-rose-600 border-rose-200 hover:bg-rose-50"
-                            onClick={() => handleOpenDelete(item)}
-                          >
-                            <Trash className="w-3.5 h-3.5 mr-1.5" />
-                            Hapus
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {items.map((item) => {
+                    const isCannotDelete =
+                      walletSummary.terkumpul - item.amount < walletSummary.dipakai;
+
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium whitespace-nowrap">
+                          {formatTanggalIndonesia(item.income_date)}
+                        </TableCell>
+                        <TableCell className="font-medium">{item.description}</TableCell>
+                        <TableCell className="text-right font-bold text-purple-700 dark:text-purple-300">
+                          {formatRupiah(item.amount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="inline-flex flex-col items-end gap-1">
+                            <div className="inline-flex items-center justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-9 px-3"
+                                onClick={() => handleOpenEdit(item)}
+                              >
+                                <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                                Ubah
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={isCannotDelete}
+                                title={isCannotDelete ? 'Sisa tidak cukup.' : 'Hapus'}
+                                aria-label={
+                                  isCannotDelete ? 'Hapus (Sisa tidak cukup.)' : 'Hapus'
+                                }
+                                className="h-9 px-3 text-rose-600 border-rose-200 hover:bg-rose-50"
+                                onClick={() => handleOpenDelete(item)}
+                              >
+                                <Trash className="w-3.5 h-3.5 mr-1.5" />
+                                Hapus
+                              </Button>
+                            </div>
+                            {isCannotDelete && (
+                              <span className="text-xs text-destructive font-medium">
+                                Sisa tidak cukup.
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

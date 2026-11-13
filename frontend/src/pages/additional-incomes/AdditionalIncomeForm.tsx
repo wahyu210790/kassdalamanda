@@ -16,12 +16,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, tanggalHariIniWIB } from '@/lib/utils';
 
 const additionalIncomeSchema = z.object({
   income_date: z.string().min(1, 'Tanggal wajib diisi'),
   description: z.string().trim().min(1, 'Keterangan wajib diisi'),
-  amount: z.number({ message: 'Jumlah harus berupa angka' }).min(1, 'Jumlah harus lebih dari 0'),
+  amount: z
+    .number({ message: 'Nominal harus lebih dari 0.' })
+    .min(1, 'Nominal harus lebih dari 0.')
+    .max(1000000000, 'Nominal maksimal Rp 1.000.000.000.'),
 });
 
 type AdditionalIncomeFormValues = z.infer<typeof additionalIncomeSchema>;
@@ -66,7 +69,7 @@ export function AdditionalIncomeForm({
   } = useForm<AdditionalIncomeFormValues>({
     resolver: zodResolver(additionalIncomeSchema),
     defaultValues: {
-      income_date: new Date().toISOString().split('T')[0],
+      income_date: tanggalHariIniWIB(),
       description: '',
       amount: undefined as unknown as number,
     },
@@ -83,7 +86,7 @@ export function AdditionalIncomeForm({
         });
       } else {
         reset({
-          income_date: new Date().toISOString().split('T')[0],
+          income_date: tanggalHariIniWIB(),
           description: '',
           amount: undefined as unknown as number,
         });

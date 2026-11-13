@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { cn, formatRupiah, labelDompet } from '@/lib/utils';
+import { cn, formatRupiah, labelDompet, tanggalHariIniWIB } from '@/lib/utils';
 
 const expenseSchema = z.object({
   title: z.string().min(3, "Judul minimal 3 karakter"),
@@ -85,7 +85,7 @@ export function ExpenseForm({
   } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
-      expense_date: new Date().toISOString().split('T')[0],
+      expense_date: tanggalHariIniWIB(),
     }
   });
 
@@ -111,7 +111,7 @@ export function ExpenseForm({
           title: '',
           description: '',
           amount: undefined as unknown as number,
-          expense_date: new Date().toISOString().split('T')[0],
+          expense_date: tanggalHariIniWIB(),
           category_id: undefined as unknown as number,
           source: undefined as unknown as ExpenseFormValues['source'],
         });

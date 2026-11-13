@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Format email tidak valid" }),
-  password: z.string().min(6, { message: "Password minimal 6 karakter" }),
+  email: z.string().email({ message: "Format email tidak valid." }),
+  password: z.string().min(6, { message: "Kata sandi minimal 6 karakter." }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -65,7 +65,7 @@ export function Login() {
           <div>
             <Link
               to="/"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[44px] text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
               Kembali
