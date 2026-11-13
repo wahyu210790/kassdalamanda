@@ -45,7 +45,7 @@ return new class extends Migration
     public function down(): void
     {
         if (DB::table('expenses')->whereNull('category_id')->exists()) {
-            return;
+            throw new \RuntimeException('Tidak bisa membatalkan migrasi: masih ada pengeluaran tanpa kategori (category_id kosong). Data tidak diubah.');
         }
 
         $driver = Schema::getConnection()->getDriverName();
