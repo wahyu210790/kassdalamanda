@@ -22,6 +22,8 @@ class DashboardResource extends JsonResource
             'saving_income' => $this->resource['saving_income'] ?? 0,
             'cash_expense' => $this->resource['cash_expense'] ?? 0,
             'saving_expense' => $this->resource['saving_expense'] ?? 0,
+            'additional_income_expense' => $this->resource['additional_income_expense'] ?? 0,
+            'total_expense' => $this->resource['total_expense'] ?? 0,
             'payment_progress' => $this->resource['payment_progress'] ?? 0,
             'today_cash' => $this->resource['today_cash'] ?? 0,
             'today_saving' => $this->resource['today_saving'] ?? 0,

@@ -18,7 +18,7 @@ class DashboardService
 
     public function getSummary(int $academicYearId): array
     {
-        $now = Carbon::now();
+        $now = Carbon::now('Asia/Jakarta');
         $currentMonth = $now->month;
 
         $wallets = $this->expenseService->getWalletsSummary($academicYearId);
@@ -27,6 +27,8 @@ class DashboardService
         $savingIncome = $wallets[ExpenseSource::Saving->value]['terkumpul'];
         $cashExpense = $wallets[ExpenseSource::Cash->value]['dipakai'];
         $savingExpense = $wallets[ExpenseSource::Saving->value]['dipakai'];
+        $additionalIncomeExpense = $wallets[ExpenseSource::AdditionalIncome->value]['dipakai'];
+        $totalExpense = $cashExpense + $savingExpense + $additionalIncomeExpense;
 
         // Query 3: Jumlah murid aktif & yang sudah bayar bulan ini
         $activeStudentsCount = Student::where('academic_year_id', $academicYearId)
@@ -60,6 +62,8 @@ class DashboardService
             'saving_income' => $savingIncome,
             'cash_expense' => $cashExpense,
             'saving_expense' => $savingExpense,
+            'additional_income_expense' => $additionalIncomeExpense,
+            'total_expense' => $totalExpense,
             'payment_progress' => $paymentProgress,
             'today_cash' => (int) ($todayIncome[PaymentType::Cash->value] ?? 0),
             'today_saving' => (int) ($todayIncome[PaymentType::Saving->value] ?? 0),

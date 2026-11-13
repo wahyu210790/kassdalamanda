@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Wallet, Coins, Users, TrendingDown, Receipt, ArrowRight } from 'lucide-react';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, formatTanggalIndonesia } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 
 export function Dashboard() {
@@ -60,8 +60,8 @@ export function Dashboard() {
     },
     {
       title: "Total Pengeluaran",
-      value: formatRupiah((data?.cash_expense || 0) + (data?.saving_expense || 0)),
-      subtitle: "Dari Kas & Tabungan",
+      value: formatRupiah(data?.total_expense || 0),
+      subtitle: "Dari Kas, Tabungan & Pemasukan tambahan",
       icon: TrendingDown,
       color: "text-rose-500",
       bgColor: "bg-rose-500/10",
@@ -159,7 +159,7 @@ export function Dashboard() {
                       <div className="flex-1 space-y-1">
                         <p className="text-sm font-medium leading-none line-clamp-1">{expense.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {expense.expense_date} • {categoryName}
+                          {formatTanggalIndonesia(expense.expense_date)} • {categoryName}
                         </p>
                       </div>
                       <div className="font-semibold text-sm text-rose-600">
