@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Wallet, PiggyBank, Users, TrendingDown, Receipt, ArrowRight } from 'lucide-react';
+import { Wallet, Coins, Users, TrendingDown, Receipt, ArrowRight } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 
@@ -54,7 +54,7 @@ export function Dashboard() {
       title: "Saldo Tabungan",
       value: formatRupiah(data?.saving_balance || 0),
       subtitle: `Pemasukan Hari Ini: ${formatRupiah(data?.today_saving || 0)}`,
-      icon: PiggyBank,
+      icon: Coins,
       color: "text-emerald-500",
       bgColor: "bg-emerald-500/10",
     },

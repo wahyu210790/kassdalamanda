@@ -6,6 +6,7 @@ import { Login } from '@/pages/auth/Login'
 import { Dashboard } from '@/pages/dashboard/Dashboard'
 import { Students } from '@/pages/students/Students'
 import { Payments } from '@/pages/payments/Payments'
+import { AdditionalIncomes } from '@/pages/additional-incomes/AdditionalIncomes'
 import { Expenses } from '@/pages/expenses/Expenses'
 import { PublicDashboard } from '@/pages/public/PublicDashboard'
 
@@ -26,6 +27,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="students" element={<Students />} />
             <Route path="payments" element={<Payments />} />
+            <Route path="additional-incomes" element={<AdditionalIncomes />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="reports" element={<div className="p-4 bg-card rounded-xl shadow-sm border">Laporan (WIP)</div>} />
             <Route path="settings" element={<div className="p-4 bg-card rounded-xl shadow-sm border">Pengaturan (WIP)</div>} />

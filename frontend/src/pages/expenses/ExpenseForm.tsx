@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,25 +12,52 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { cn, formatRupiah, labelDompet } from '@/lib/utils';
 
 const expenseSchema = z.object({
   title: z.string().min(3, "Judul minimal 3 karakter"),
   description: z.string().optional(),
-  amount: z.number().min(500, "Nominal minimal Rp 500"),
+  amount: z.number({ message: "Nominal wajib diisi" }).min(500, "Nominal minimal Rp 500"),
   expense_date: z.string().min(1, "Tanggal wajib diisi"),
-  category_id: z.number().min(1, "Kategori wajib dipilih."),
-  source: z.enum(['cash', 'saving']),
+  category_id: z.number({ message: "Kategori wajib dipilih." }).min(1, "Kategori wajib dipilih."),
+  source: z.enum(['cash', 'saving', 'additional_income']),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
+
+export interface ExpenseItem {
+  id: number;
+  academic_year_id?: number;
+  category_id?: number;
+  title: string;
+  description: string | null;
+  amount: number;
+  expense_date: string;
+  source: 'cash' | 'saving' | 'additional_income';
+  category: string;
+}
+
+export interface WalletsSummary {
+  cash: { terkumpul: number; dipakai: number; sisa: number };
+  saving: { terkumpul: number; dipakai: number; sisa: number };
+  additional_income: { terkumpul: number; dipakai: number; sisa: number };
+}
 
 interface ExpenseFormProps {
   isOpen: boolean;
   onClose: () => void;
   academicYearId: number;
+  editingExpense?: ExpenseItem | null;
+  walletsSummary?: WalletsSummary | null;
 }
 
-export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProps) {
+export function ExpenseForm({
+  isOpen,
+  onClose,
+  academicYearId,
+  editingExpense = null,
+  walletsSummary = null,
+}: ExpenseFormProps) {
   const queryClient = useQueryClient();
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -58,18 +85,64 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
     }
   });
 
-  const watchSource = watch('source');
+  useEffect(() => {
+    if (isOpen) {
+      setErrorMsg('');
+      if (editingExpense) {
+        let resolvedCategoryId = editingExpense.category_id;
+        if (!resolvedCategoryId && categories.length > 0 && editingExpense.category) {
+          const found = categories.find((c: any) => c.name === editingExpense.category);
+          if (found) resolvedCategoryId = found.id;
+        }
+        reset({
+          title: editingExpense.title,
+          description: editingExpense.description || '',
+          amount: editingExpense.amount,
+          expense_date: editingExpense.expense_date.slice(0, 10),
+          category_id: resolvedCategoryId || 0,
+          source: editingExpense.source || 'cash',
+        });
+      } else {
+        reset({
+          title: '',
+          description: '',
+          amount: undefined as unknown as number,
+          expense_date: new Date().toISOString().split('T')[0],
+          category_id: undefined as unknown as number,
+          source: 'cash',
+        });
+      }
+    }
+  }, [isOpen, editingExpense, categories, reset]);
+
+  const watchSource = watch('source') || 'cash';
   const watchCategoryId = watch('category_id');
+  const watchAmount = watch('amount');
+
+  const rawWalletSisa = walletsSummary?.[watchSource]?.sisa ?? 0;
+  const availableSisa =
+    editingExpense && editingExpense.source === watchSource
+      ? rawWalletSisa + editingExpense.amount
+      : rawWalletSisa;
+
+  const numericAmount = typeof watchAmount === 'number' && !Number.isNaN(watchAmount) ? watchAmount : 0;
+  const isOverBalance = walletsSummary !== null && numericAmount > availableSisa;
 
   const mutation = useMutation({
     mutationFn: async (data: ExpenseFormValues) => {
       const payload = { ...data, academic_year_id: academicYearId };
+      if (editingExpense) {
+        const response = await api.put(`/expenses/${editingExpense.id}`, payload);
+        return response.data;
+      }
       const response = await api.post(`/expenses`, payload);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['wallets-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['public-dashboard-summary'] });
       handleClose();
     },
     onError: (err: any) => {
@@ -88,6 +161,10 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
   });
 
   const onSubmit = (data: ExpenseFormValues) => {
+    if (isOverBalance) {
+      setErrorMsg('Nominal melebihi Sisa.');
+      return;
+    }
     setErrorMsg('');
     mutation.mutate(data);
   };
@@ -104,7 +181,9 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
     <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Catat Pengeluaran Baru</DialogTitle>
+          <DialogTitle>
+            {editingExpense ? 'Ubah Pengeluaran' : 'Catat Pengeluaran Baru'}
+          </DialogTitle>
           <DialogDescription>
             Masukkan detail pengeluaran. Pastikan saldo mencukupi.
           </DialogDescription>
@@ -136,10 +215,16 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
                 type="number"
                 placeholder="50000" 
                 {...register('amount', { valueAsNumber: true })} 
-                className={errors.amount ? 'border-destructive' : ''}
+                className={cn(
+                  (errors.amount || isOverBalance) &&
+                    'border-destructive focus-visible:ring-destructive bg-destructive/5'
+                )}
                 disabled={hasNoCategories || mutation.isPending}
               />
               {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
+              {isOverBalance && (
+                <p className="text-xs font-medium text-destructive">Nominal melebihi Sisa.</p>
+              )}
             </div>
             
             <div className="space-y-2">
@@ -154,11 +239,11 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Kategori</label>
               <Select 
-                value={watchCategoryId?.toString() || ''} 
+                value={watchCategoryId ? watchCategoryId.toString() : ''} 
                 onValueChange={(val: string) => setValue('category_id', parseInt(val, 10), { shouldValidate: true })}
                 disabled={hasNoCategories || mutation.isPending}
               >
@@ -175,20 +260,40 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sumber Dana</label>
+              <label className="text-sm font-medium">Diambil dari</label>
               <Select 
                 value={watchSource} 
-                onValueChange={(val: 'cash' | 'saving') => setValue('source', val)}
+                onValueChange={(val: 'cash' | 'saving' | 'additional_income') =>
+                  setValue('source', val, { shouldValidate: true })
+                }
                 disabled={hasNoCategories || mutation.isPending}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  className={cn(
+                    isOverBalance && 'border-destructive ring-1 ring-destructive bg-destructive/5'
+                  )}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Uang Kas</SelectItem>
-                  <SelectItem value="saving">Uang Tabungan</SelectItem>
+                  <SelectItem value="cash">Saldo Kas</SelectItem>
+                  <SelectItem value="saving">Saldo Tabungan</SelectItem>
+                  <SelectItem value="additional_income">Pemasukan tambahan</SelectItem>
                 </SelectContent>
               </Select>
+              {walletsSummary && (
+                <div
+                  className={cn(
+                    'text-xs px-2.5 py-1.5 rounded-md border flex items-center justify-between',
+                    isOverBalance
+                      ? 'border-destructive bg-destructive/10 text-destructive font-semibold'
+                      : 'border-border bg-muted/40 text-muted-foreground'
+                  )}
+                >
+                  <span>Sisa {labelDompet(watchSource)}:</span>
+                  <span className="font-semibold">{formatRupiah(availableSisa)}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -202,7 +307,7 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
             />
           </div>
 
-          {errorMsg && (
+          {errorMsg && !isOverBalance && (
             <div className="p-3 text-sm rounded-lg bg-destructive/15 text-destructive border border-destructive/20 font-medium break-words">
               {errorMsg}
             </div>
@@ -214,8 +319,8 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
             </Button>
             <Button 
               type="submit" 
-              variant="destructive" 
-              disabled={mutation.isPending || hasNoCategories}
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              disabled={mutation.isPending || hasNoCategories || isOverBalance}
             >
               {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Simpan Pengeluaran

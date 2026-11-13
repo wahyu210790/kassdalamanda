@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   Users, 
   Wallet, 
+  Sparkles,
   Receipt,
   Settings,
   FileText
@@ -13,6 +14,7 @@ export const navItems = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Siswa", href: "/admin/students", icon: Users },
   { name: "Pembayaran Kas & Tabungan", href: "/admin/payments", icon: Wallet },
+  { name: "Pemasukan tambahan", href: "/admin/additional-incomes", icon: Sparkles },
   { name: "Pengeluaran", href: "/admin/expenses", icon: Receipt },
   { name: "Laporan", href: "/admin/reports", icon: FileText },
   { name: "Pengaturan", href: "/admin/settings", icon: Settings },
