@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import api, { csrfCookieURL } from '@/lib/axios';
 import { Button } from '@/components/ui/button';
@@ -62,6 +62,15 @@ export function Login() {
       {/* Kiri: Form Login */}
       <div className="flex items-center justify-center p-8 sm:p-12 lg:p-16">
         <div className="mx-auto w-full max-w-sm space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Kembali
+            </Link>
+          </div>
           <div className="space-y-2 text-center lg:text-left">
             <div className="flex justify-center lg:justify-start items-center gap-3 mb-6">
               <div className="bg-primary/10 p-2 rounded-2xl">
@@ -100,7 +109,7 @@ export function Login() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">
-                  Password
+                  Kata sandi
                 </label>
                 <Input
                   id="password"

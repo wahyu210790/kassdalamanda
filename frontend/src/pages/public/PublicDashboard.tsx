@@ -1,11 +1,11 @@
 import { useState } from "react"
-import { Search, Loader2, Info, CheckCircle2, XCircle, Wallet, PiggyBank, TrendingDown, Users } from "lucide-react"
+import { Search, Loader2, Info, CheckCircle2, XCircle, Wallet, Coins, TrendingDown, Users, Sparkles, ChevronRight, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import api from "@/lib/axios"
 import { useQuery } from "@tanstack/react-query"
-import { cn } from "@/lib/utils"
+import { cn, formatTanggalIndonesia, labelDompet } from "@/lib/utils"
 import { daftarBulanTahunAjaran, getBulanTimelineStatus } from "@/lib/tahunAjaran"
 
 interface StudentSummary {
@@ -26,17 +26,53 @@ interface AcademicYearInfo {
   end_date: string;
 }
 
+interface WalletBreakdown {
+  terkumpul: number;
+  dipakai: number;
+  sisa: number;
+}
+
+interface AdditionalIncomePublicItem {
+  id: number;
+  income_date: string;
+  description: string;
+  amount: number;
+}
+
+interface AdditionalIncomePublic extends WalletBreakdown {
+  items: AdditionalIncomePublicItem[];
+}
+
+interface ExpensePublicItem {
+  id: number;
+  expense_date: string;
+  title: string;
+  amount: number;
+  source: 'cash' | 'saving' | 'additional_income';
+  description?: string | null;
+}
+
 interface GlobalSummary {
   cash_balance: number;
   saving_balance: number;
   total_expense: number;
   student_count: number;
   academic_year?: AcademicYearInfo;
+  cash?: WalletBreakdown;
+  saving?: WalletBreakdown;
+  additional_income?: AdditionalIncomePublic | null;
+  expenses?: {
+    total: number;
+    items: ExpensePublicItem[];
+  };
 }
+
+type ActiveDetailSheet = 'cash' | 'saving' | 'additional_income' | 'expenses' | null;
 
 export function PublicDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [queryTerm, setQueryTerm] = useState("")
+  const [activeSheet, setActiveSheet] = useState<ActiveDetailSheet>(null)
 
   const { data: searchResults, isLoading, isError, error } = useQuery({
     queryKey: ['public-student-search', queryTerm],
@@ -74,6 +110,22 @@ export function PublicDashboard() {
 
   const academicMonths = daftarBulanTahunAjaran(summaryData?.academic_year?.start_date);
 
+  const cashSummary: WalletBreakdown = summaryData?.cash ?? {
+    terkumpul: summaryData?.cash_balance ?? 0,
+    dipakai: 0,
+    sisa: summaryData?.cash_balance ?? 0,
+  };
+
+  const savingSummary: WalletBreakdown = summaryData?.saving ?? {
+    terkumpul: summaryData?.saving_balance ?? 0,
+    dipakai: 0,
+    sisa: summaryData?.saving_balance ?? 0,
+  };
+
+  const additionalIncomeSummary = summaryData?.additional_income ?? null;
+  const allExpenseItems = summaryData?.expenses?.items ?? [];
+  const totalExpenses = summaryData?.expenses?.total ?? summaryData?.total_expense ?? 0;
+
   const renderMonthChips = (paidMonths: number[], type: 'kas' | 'tabungan') => {
     return (
       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
@@ -88,8 +140,6 @@ export function PublicDashboard() {
             statusLabel = 'Lunas';
           } else if (isFuture) {
             statusLabel = 'Belum jatuh tempo';
-          } else if (isCurrentMonth) {
-            statusLabel = 'Belum bayar';
           } else {
             statusLabel = 'Belum bayar';
           }
@@ -128,68 +178,190 @@ export function PublicDashboard() {
     );
   };
 
+  const renderDetailModal = () => {
+    if (!activeSheet || !summaryData) return null;
+
+    let title = '';
+    let walletSummary: WalletBreakdown | null = null;
+    let expenseSectionTitle = '';
+    let filteredExpenses: ExpensePublicItem[] = [];
+
+    if (activeSheet === 'cash') {
+      title = 'Saldo Kas';
+      walletSummary = cashSummary;
+      expenseSectionTitle = 'Pengeluaran dari Saldo Kas';
+      filteredExpenses = allExpenseItems.filter((item) => item.source === 'cash');
+    } else if (activeSheet === 'saving') {
+      title = 'Saldo Tabungan';
+      walletSummary = savingSummary;
+      expenseSectionTitle = 'Pengeluaran dari Saldo Tabungan';
+      filteredExpenses = allExpenseItems.filter((item) => item.source === 'saving');
+    } else if (activeSheet === 'additional_income' && additionalIncomeSummary) {
+      title = 'Pemasukan tambahan';
+      walletSummary = {
+        terkumpul: additionalIncomeSummary.terkumpul,
+        dipakai: additionalIncomeSummary.dipakai,
+        sisa: additionalIncomeSummary.sisa,
+      };
+      expenseSectionTitle = 'Pengeluaran dari Pemasukan tambahan';
+      filteredExpenses = allExpenseItems.filter((item) => item.source === 'additional_income');
+    } else if (activeSheet === 'expenses') {
+      title = 'Pengeluaran';
+      filteredExpenses = allExpenseItems;
+    }
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200"
+        onClick={() => setActiveSheet(null)}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="public-sheet-title"
+          className="bg-background w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border shadow-xl max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
+            <h3 id="public-sheet-title" className="text-lg font-bold text-foreground">
+              {title}
+            </h3>
+            <button
+              type="button"
+              aria-label="Tutup"
+              onClick={() => setActiveSheet(null)}
+              className="inline-flex items-center justify-center h-11 w-11 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-xl leading-none"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="p-5 overflow-y-auto space-y-5 flex-1">
+            {walletSummary && (
+              <div className="grid grid-cols-3 gap-2.5 bg-muted/40 p-3.5 rounded-xl border">
+                <div>
+                  <p className="text-xs text-muted-foreground">Terkumpul</p>
+                  <p className="text-sm sm:text-base font-semibold text-foreground mt-0.5">
+                    {formatCurrency(walletSummary.terkumpul)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Sudah dipakai</p>
+                  <p className="text-sm sm:text-base font-semibold text-rose-600 dark:text-rose-400 mt-0.5">
+                    {formatCurrency(walletSummary.dipakai)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Sisa</p>
+                  <p className="text-sm sm:text-base font-bold text-primary mt-0.5">
+                    {formatCurrency(walletSummary.sisa)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {activeSheet === 'expenses' && (
+              <div className="bg-rose-50/70 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 rounded-xl p-4 flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Total Pengeluaran</span>
+                <span className="text-lg font-bold text-rose-600 dark:text-rose-400">
+                  {formatCurrency(totalExpenses)}
+                </span>
+              </div>
+            )}
+
+            {activeSheet === 'additional_income' && additionalIncomeSummary && (
+              <div className="space-y-2.5">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Daftar Pemasukan tambahan
+                </h4>
+                {additionalIncomeSummary.items.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-3 text-center border rounded-xl border-dashed">
+                    Belum ada pemasukan tambahan
+                  </p>
+                ) : (
+                  <div className="divide-y border rounded-xl bg-card">
+                    {additionalIncomeSummary.items.map((inc) => (
+                      <div key={inc.id} className="p-3.5 flex items-start justify-between gap-3">
+                        <div className="space-y-0.5 min-w-0">
+                          <p className="text-sm font-medium text-foreground break-words">
+                            {inc.description}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatTanggalIndonesia(inc.income_date)}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-purple-700 dark:text-purple-300 shrink-0">
+                          {formatCurrency(inc.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2.5">
+              {activeSheet !== 'expenses' && (
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {expenseSectionTitle}
+                </h4>
+              )}
+              {filteredExpenses.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center border rounded-xl border-dashed">
+                  {activeSheet === 'expenses'
+                    ? 'Belum ada pengeluaran'
+                    : 'Belum ada pengeluaran dari pos ini'}
+                </p>
+              ) : (
+                <div className="divide-y border rounded-xl bg-card">
+                  {filteredExpenses.map((exp) => (
+                    <div key={exp.id} className="p-3.5 flex items-start justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground break-words">
+                          {exp.title}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                          <span>{formatTanggalIndonesia(exp.expense_date)}</span>
+                          {activeSheet === 'expenses' && (
+                            <span>• Diambil dari: {labelDompet(exp.source)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-rose-600 dark:text-rose-400 shrink-0">
+                        {formatCurrency(exp.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 border-t bg-muted/20 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setActiveSheet(null)}
+              className="w-full min-h-[44px] font-medium"
+            >
+              Tutup
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 sm:space-y-8 max-w-4xl mx-auto px-2 sm:px-0">
       <div className="text-center space-y-3 sm:space-y-4">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">Cek Data Kas & Tabungan</h1>
         <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto px-4 sm:px-0">
-          Masukkan nama siswa untuk melihat transparansi status pembayaran uang kas dan total tabungan kelas.
+          Masukkan nama siswa untuk melihat transparansi pembayaran uang kas dan tabungan kelas.
         </p>
       </div>
 
-      {/* Global Summary Cards - Mobile First Grid */}
-      {!isLoadingSummary && summaryData && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 px-2 sm:px-0">
-          <Card className="bg-card shadow-sm border-blue-100 dark:border-blue-900/30">
-            <CardContent className="p-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
-                <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-muted-foreground">Saldo Kas</p>
-                <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(summaryData.cash_balance)}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card shadow-sm border-emerald-100 dark:border-emerald-900/30">
-            <CardContent className="p-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
-              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full">
-                <PiggyBank className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-muted-foreground">Saldo Tabungan</p>
-                <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summaryData.saving_balance)}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card shadow-sm border-rose-100 dark:border-rose-900/30">
-            <CardContent className="p-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
-              <div className="p-2 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full">
-                <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-muted-foreground">Pengeluaran</p>
-                <p className="text-lg sm:text-2xl font-bold text-rose-600 dark:text-rose-400">{formatCurrency(summaryData.total_expense)}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card shadow-sm border-purple-100 dark:border-purple-900/30">
-            <CardContent className="p-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">
-                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-muted-foreground">Siswa Aktif</p>
-                <p className="text-lg sm:text-2xl font-bold text-purple-600 dark:text-purple-400">{summaryData.student_count}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
+      {/* Kotak Pencarian Siswa (Paling Atas) */}
       <Card className="shadow-lg border-primary/20 mx-2 sm:mx-0">
         <CardContent className="pt-6">
           <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
@@ -217,38 +389,7 @@ export function PublicDashboard() {
         </CardContent>
       </Card>
 
-      {/* Legenda Status Bulan */}
-      <div className="bg-muted/30 border rounded-xl p-4 mx-2 sm:mx-0 space-y-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Keterangan Status Bulan:</span>
-          {summaryData?.academic_year?.name && (
-            <span className="text-xs text-muted-foreground">
-              Tahun ajaran {summaryData.academic_year.name} (Juli–Juni)
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-success" />
-            <span className="text-foreground font-medium">Lunas</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <XCircle className="w-4 h-4 text-muted-foreground" />
-            <span>Belum bayar</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3.5 h-3.5 rounded border border-dashed border-muted-foreground/60 flex items-center justify-center">
-              <span className="w-1 h-1 rounded-full bg-muted-foreground/40"></span>
-            </div>
-            <span>Belum jatuh tempo</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3.5 h-3.5 rounded border-2 border-primary bg-background"></div>
-            <span>Bulan ini</span>
-          </div>
-        </div>
-      </div>
-
+      {/* Hasil Pencarian Siswa (Tepat di bawah kotak cari, di atas ringkasan kelas) */}
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin mb-4 text-primary" />
@@ -289,7 +430,7 @@ export function PublicDashboard() {
                   <div className="p-6 space-y-4">
                     <div className="flex justify-between items-end mb-4">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Status Uang Kas</p>
+                        <p className="text-sm font-medium text-muted-foreground">Total Uang Kas</p>
                         <p className="text-2xl font-bold text-success">{formatCurrency(student.summary.total_kas_paid)}</p>
                       </div>
                     </div>
@@ -321,6 +462,163 @@ export function PublicDashboard() {
           ))}
         </div>
       )}
+
+      {/* Legenda Status Bulan */}
+      <div className="bg-muted/30 border rounded-xl p-4 mx-2 sm:mx-0 space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Keterangan Status Bulan:</span>
+          {summaryData?.academic_year?.name && (
+            <span className="text-xs text-muted-foreground">
+              Tahun ajaran {summaryData.academic_year.name} (Juli–Juni)
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 text-success" />
+            <span className="text-foreground font-medium">Lunas</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <XCircle className="w-4 h-4 text-muted-foreground" />
+            <span>Belum bayar</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3.5 h-3.5 rounded border border-dashed border-muted-foreground/60 flex items-center justify-center">
+              <span className="w-1 h-1 rounded-full bg-muted-foreground/40"></span>
+            </div>
+            <span>Belum jatuh tempo</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3.5 h-3.5 rounded border-2 border-primary bg-background"></div>
+            <span>Bulan ini</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Ringkasan Kelas dalam SATU Kotak */}
+      {!isLoadingSummary && summaryData && (
+        <Card className="bg-card shadow-sm border mx-2 sm:mx-0 overflow-hidden">
+          <CardHeader className="pb-3 border-b bg-muted/20">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base sm:text-lg font-semibold text-foreground">
+                Tahun Ajaran {summaryData.academic_year?.name ?? "-"}
+              </CardTitle>
+              <span className="text-xs text-muted-foreground">Ketuk pos untuk rincian</span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5 space-y-3 sm:space-y-4">
+            {/* Baris Atas Desktop: Saldo Kas, Saldo Tabungan, Pemasukan tambahan (jika ada) */}
+            <div
+              className={cn(
+                "grid grid-cols-1 gap-3",
+                additionalIncomeSummary ? "md:grid-cols-3" : "md:grid-cols-2"
+              )}
+            >
+              {/* 1. Saldo Kas (Biru, paling menonjol, ikon Wallet) */}
+              <button
+                type="button"
+                onClick={() => setActiveSheet('cash')}
+                className="w-full min-h-[44px] flex items-center justify-between gap-3 p-4 rounded-xl border-2 border-blue-200 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/30 hover:bg-blue-100/70 dark:hover:bg-blue-900/40 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 bg-blue-600 text-white rounded-xl shrink-0">
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-blue-900/80 dark:text-blue-200">Saldo Kas</p>
+                    <p className="text-lg sm:text-2xl font-bold text-blue-700 dark:text-blue-300 truncate">
+                      {formatCurrency(cashSummary.sisa)}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" aria-hidden="true" />
+              </button>
+
+              {/* 2. Saldo Tabungan (Hijau, ikon Coins) */}
+              <button
+                type="button"
+                onClick={() => setActiveSheet('saving')}
+                className="w-full min-h-[44px] flex items-center justify-between gap-3 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/30 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-xl shrink-0">
+                    <Coins className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">Saldo Tabungan</p>
+                    <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 truncate">
+                      {formatCurrency(savingSummary.sisa)}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+              </button>
+
+              {/* 3. Pemasukan tambahan (Ungu muda, HANYA tampil jika additional_income !== null) */}
+              {additionalIncomeSummary !== null && (
+                <button
+                  type="button"
+                  onClick={() => setActiveSheet('additional_income')}
+                  className="w-full min-h-[44px] flex items-center justify-between gap-3 p-4 rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/60 dark:bg-purple-950/20 hover:bg-purple-100/60 dark:hover:bg-purple-900/30 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-xl shrink-0">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground">Pemasukan tambahan</p>
+                      <p className="text-lg sm:text-2xl font-bold text-purple-700 dark:text-purple-300 truncate">
+                        {formatCurrency(additionalIncomeSummary.sisa)}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            {/* Baris Bawah Desktop: Pengeluaran dan Siswa Aktif */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              {/* 4. Pengeluaran (Bisa diklik) */}
+              <button
+                type="button"
+                onClick={() => setActiveSheet('expenses')}
+                className="w-full min-h-[44px] flex items-center justify-between gap-3 p-3.5 rounded-xl border border-rose-200/80 dark:border-rose-900/40 bg-rose-50/40 dark:bg-rose-950/15 hover:bg-rose-100/50 dark:hover:bg-rose-900/30 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-lg shrink-0">
+                    <TrendingDown className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">Pengeluaran</p>
+                    <p className="text-base sm:text-xl font-bold text-rose-600 dark:text-rose-400 truncate">
+                      {formatCurrency(totalExpenses)}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" aria-hidden="true" />
+              </button>
+
+              {/* 5. Siswa Aktif (Angka saja, TIDAK bisa diklik) */}
+              <div className="w-full min-h-[44px] flex items-center justify-between gap-3 p-3.5 rounded-xl border bg-muted/20">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg shrink-0">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">Siswa Aktif</p>
+                    <p className="text-base sm:text-xl font-bold text-foreground">
+                      {summaryData.student_count}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {renderDetailModal()}
     </div>
   )
 }

@@ -29,3 +29,32 @@ export function nomorWhatsApp(phone: string | null | undefined): string | null {
   }
   return digits;
 }
+
+const BULAN_PENDEK_ID = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des',
+];
+
+export function formatTanggalIndonesia(dateStr: string | null | undefined): string {
+  if (!dateStr) return '-';
+  const clean = String(dateStr).slice(0, 10);
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const year = Number(parts[0]);
+    const monthIdx = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    if (!Number.isNaN(year) && monthIdx >= 0 && monthIdx < 12 && !Number.isNaN(day)) {
+      return `${day} ${BULAN_PENDEK_ID[monthIdx]} ${year}`;
+    }
+  }
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  return `${d.getDate()} ${BULAN_PENDEK_ID[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+export function labelDompet(source: string | null | undefined): string {
+  if (source === 'cash') return 'Saldo Kas';
+  if (source === 'saving') return 'Saldo Tabungan';
+  if (source === 'additional_income') return 'Pemasukan tambahan';
+  return source || '-';
+}
