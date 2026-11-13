@@ -19,7 +19,7 @@ class ExpenseResource extends JsonResource
             'id' => $this->id,
             'academic_year_id' => $this->academic_year_id,
             'category_id' => $this->category_id,
-            'category' => $this->whenLoaded('category', fn() => $this->category->name),
+            'category' => $this->whenLoaded('category', fn() => $this->category?->name),
             'title' => $this->title,
             'source' => $this->source instanceof BackedEnum ? $this->source->value : $this->source,
             'amount' => (int) $this->amount,

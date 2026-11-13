@@ -30,7 +30,6 @@ trait PesanValidasiIndonesia
             'after' => ':attribute harus setelah :date.',
             'amount.gt' => 'Nominal harus lebih dari 0.',
             'amount.max' => 'Nominal maksimal Rp 1.000.000.000.',
-            'category_id.required' => 'Kategori wajib dipilih.',
             'category_id.exists' => 'Kategori tidak ditemukan.',
             'source.required' => 'Diambil dari wajib dipilih.',
             'source.in' => 'Diambil dari tidak valid.',
@@ -42,7 +41,7 @@ trait PesanValidasiIndonesia
         return $this->pesanDasarIndonesia();
     }
 
-    public function attributes(): array
+    protected function atributDasarIndonesia(): array
     {
         return [
             'amount' => 'Nominal',
@@ -71,5 +70,10 @@ trait PesanValidasiIndonesia
             'monthly_cash_amount' => 'Nominal kas bulanan',
             'monthly_saving_amount' => 'Nominal tabungan bulanan',
         ];
+    }
+
+    public function attributes(): array
+    {
+        return $this->atributDasarIndonesia();
     }
 }

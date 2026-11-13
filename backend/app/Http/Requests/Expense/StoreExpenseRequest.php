@@ -27,7 +27,7 @@ class StoreExpenseRequest extends FormRequest
     {
         return [
             'academic_year_id' => ['required', 'exists:academic_years,id'],
-            'category_id' => ['required', 'exists:expense_categories,id'],
+            'category_id' => ['nullable', 'exists:expense_categories,id'],
             'source' => ['required', 'in:cash,saving,additional_income'],
             'title' => ['required', 'string', 'max:200'],
             'amount' => ['required', 'integer', 'gt:0', 'max:1000000000'],
@@ -39,12 +39,19 @@ class StoreExpenseRequest extends FormRequest
     public function messages(): array
     {
         return array_merge($this->pesanDasarIndonesia(), [
-            'category_id.required' => 'Kategori wajib dipilih.',
+            'title.required' => 'Keterangan wajib diisi.',
             'category_id.exists' => 'Kategori tidak ditemukan.',
             'source.required' => 'Diambil dari wajib dipilih.',
             'source.in' => 'Diambil dari tidak valid.',
             'amount.gt' => 'Nominal harus lebih dari 0.',
             'amount.max' => 'Nominal maksimal Rp 1.000.000.000.',
+        ]);
+    }
+
+    public function attributes(): array
+    {
+        return array_merge($this->atributDasarIndonesia(), [
+            'title' => 'Keterangan',
         ]);
     }
 }

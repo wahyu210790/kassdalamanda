@@ -74,7 +74,7 @@ class ExpenseService
 
             $expense = Expense::create([
                 'academic_year_id' => $data['academic_year_id'],
-                'category_id' => $data['category_id'],
+                'category_id' => $data['category_id'] ?? null,
                 'admin_id' => $adminId,
                 'source' => $data['source'],
                 'title' => $data['title'],
@@ -125,7 +125,7 @@ class ExpenseService
             }
 
             $expense->update([
-                'category_id' => $data['category_id'],
+                'category_id' => array_key_exists('category_id', $data) ? $data['category_id'] : $expense->category_id,
                 'source' => $newSource,
                 'title' => $data['title'],
                 'description' => array_key_exists('description', $data) ? $data['description'] : $expense->description,
