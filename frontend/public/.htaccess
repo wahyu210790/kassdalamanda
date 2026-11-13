@@ -1,3 +1,10 @@
+# Jangan simpan lama: service worker, pendaftar, halaman utama, manifest
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw\.js|registerSW\.js|index\.html|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
