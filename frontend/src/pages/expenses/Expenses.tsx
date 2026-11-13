@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
-import { Plus, Search, Trash, AlertTriangle, Receipt } from 'lucide-react';
+import { Plus, Search, Trash, Receipt } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ExpenseForm } from './ExpenseForm';
+import { useTahunAjaranAktif } from '@/hooks/useTahunAjaranAktif';
+import { ambilSemuaHalaman } from '@/lib/ambilSemuaHalaman';
 
 interface Expense {
   id: number;
@@ -18,24 +20,29 @@ interface Expense {
   amount: number;
   expense_date: string;
   source: string;
-  category: {
-    id: number;
-    name: string;
-  };
+  category: string;
 }
 
 export function Expenses() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [academicYearId] = useState(1);
 
-  const { data: expenses = [], isLoading } = useQuery({
+  const { 
+    data: tahunAjaran, 
+    isLoading: isYearLoading, 
+    isError: isYearError, 
+    error: yearError 
+  } = useTahunAjaranAktif();
+  const academicYearId = tahunAjaran?.id;
+
+  const { data: expenses = [], isLoading: isExpensesLoading } = useQuery({
     queryKey: ['expenses', academicYearId],
     queryFn: async () => {
-      const response = await api.get(`/expenses?academic_year_id=${academicYearId}`);
-      return response.data.data as Expense[];
-    }
+      if (!academicYearId) return [];
+      return await ambilSemuaHalaman<Expense>(`/expenses?academic_year_id=${academicYearId}`);
+    },
+    enabled: !!academicYearId,
   });
 
   const deleteMutation = useMutation({
@@ -54,8 +61,10 @@ export function Expenses() {
 
   const filteredExpenses = expenses.filter(e => 
     e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.category?.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (e.category && e.category.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const is404Year = (yearError as any)?.response?.status === 404;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -64,11 +73,24 @@ export function Expenses() {
           <h2 className="text-3xl font-bold tracking-tight">Pengeluaran</h2>
           <p className="text-muted-foreground mt-1">Catat penggunaan dana kas dan tabungan.</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)} className="w-full sm:w-auto" variant="destructive">
+        <Button 
+          onClick={() => setIsFormOpen(true)} 
+          className="w-full sm:w-auto" 
+          variant="destructive"
+          disabled={!academicYearId || isYearLoading}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Catat Pengeluaran
         </Button>
       </div>
+
+      {isYearError && (
+        <div className="p-4 rounded-xl bg-destructive/15 text-destructive border border-destructive/20 text-sm font-medium">
+          {is404Year 
+            ? "Belum ada tahun ajaran aktif. Aktifkan tahun ajaran dulu." 
+            : "Gagal memuat tahun ajaran. Coba muat ulang halaman."}
+        </div>
+      )}
 
       <div className="bg-card border rounded-xl shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/20">
@@ -99,7 +121,7 @@ export function Expenses() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isYearLoading || isExpensesLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                     Memuat data pengeluaran...
@@ -128,7 +150,7 @@ export function Expenses() {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>{expense.category?.name}</TableCell>
+                    <TableCell>{expense.category || '-'}</TableCell>
                     <TableCell>
                       <Badge 
                         variant="outline" 
@@ -148,7 +170,9 @@ export function Expenses() {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="w-8 h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity" 
+                        className="h-11 w-11 sm:h-8 sm:w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50" 
+                        aria-label="Hapus"
+                        title="Hapus"
                         onClick={() => handleDelete(expense.id, expense.title)}
                       >
                         <Trash className="w-4 h-4" />
@@ -162,11 +186,13 @@ export function Expenses() {
         </div>
       </div>
 
-      <ExpenseForm 
-        isOpen={isFormOpen} 
-        onClose={() => setIsFormOpen(false)} 
-        academicYearId={academicYearId}
-      />
+      {academicYearId && (
+        <ExpenseForm 
+          isOpen={isFormOpen} 
+          onClose={() => setIsFormOpen(false)} 
+          academicYearId={academicYearId}
+        />
+      )}
     </div>
   );
 }

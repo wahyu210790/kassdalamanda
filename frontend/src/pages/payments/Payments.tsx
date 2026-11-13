@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
-import { Plus, Search, Trash, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, Trash, AlertTriangle } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
@@ -10,11 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { PaymentForm } from './PaymentForm';
+import { useTahunAjaranAktif } from '@/hooks/useTahunAjaranAktif';
+import { tahunUntukBulan } from '@/lib/tahunAjaran';
+import { ambilSemuaHalaman } from '@/lib/ambilSemuaHalaman';
 
 interface PaymentMonth {
-  id: number;
+  id?: number;
   month: number;
-  year: number;
+  year?: number;
   payment_type: string;
 }
 
@@ -32,14 +35,22 @@ export function Payments() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [academicYearId] = useState(1);
 
-  const { data: payments = [], isLoading } = useQuery({
+  const { 
+    data: tahunAjaran, 
+    isLoading: isYearLoading, 
+    isError: isYearError, 
+    error: yearError 
+  } = useTahunAjaranAktif();
+  const academicYearId = tahunAjaran?.id;
+
+  const { data: payments = [], isLoading: isPaymentsLoading } = useQuery({
     queryKey: ['payments', academicYearId],
     queryFn: async () => {
-      const response = await api.get(`/payments?academic_year_id=${academicYearId}`);
-      return response.data.data as Payment[];
-    }
+      if (!academicYearId) return [];
+      return await ambilSemuaHalaman<Payment>(`/payments?academic_year_id=${academicYearId}`);
+    },
+    enabled: !!academicYearId,
   });
 
   const deleteMutation = useMutation({
@@ -61,10 +72,11 @@ export function Payments() {
   );
 
   const formatMonthName = (month: number) => {
-    const date = new Date();
-    date.setMonth(month - 1);
+    const date = new Date(2000, month - 1, 1);
     return date.toLocaleString('id-ID', { month: 'short' });
   };
+
+  const is404Year = (yearError as any)?.response?.status === 404;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -73,11 +85,23 @@ export function Payments() {
           <h2 className="text-3xl font-bold tracking-tight">Pembayaran</h2>
           <p className="text-muted-foreground mt-1">Kelola transaksi kas dan tabungan siswa.</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)} className="w-full sm:w-auto bg-primary hover:bg-primary/90">
+        <Button 
+          onClick={() => setIsFormOpen(true)} 
+          className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+          disabled={!academicYearId || isYearLoading}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Catat Pembayaran
         </Button>
       </div>
+
+      {isYearError && (
+        <div className="p-4 rounded-xl bg-destructive/15 text-destructive border border-destructive/20 text-sm font-medium">
+          {is404Year 
+            ? "Belum ada tahun ajaran aktif. Aktifkan tahun ajaran dulu." 
+            : "Gagal memuat tahun ajaran. Coba muat ulang halaman."}
+        </div>
+      )}
 
       <div className="bg-card border rounded-xl shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/20">
@@ -107,7 +131,7 @@ export function Payments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isYearLoading || isPaymentsLoading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
                     Memuat data transaksi...
@@ -128,22 +152,25 @@ export function Payments() {
                     <TableCell className="font-medium whitespace-nowrap">
                       {payment.payment_date}
                     </TableCell>
-                    <TableCell className="font-semibold">{payment.student.student_name}</TableCell>
+                    <TableCell className="font-semibold">{payment.student?.student_name}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1 max-w-sm">
-                        {payment.months.map((m) => (
-                          <Badge 
-                            key={m.id} 
-                            variant="secondary" 
-                            className={`text-xs ${
-                              m.payment_type === 'cash' 
-                                ? 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20' 
-                                : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
-                            }`}
-                          >
-                            {m.payment_type === 'cash' ? 'Kas' : 'Tabungan'}: {formatMonthName(m.month)} {m.year}
-                          </Badge>
-                        ))}
+                        {payment.months.map((m) => {
+                          const year = tahunUntukBulan(m.month, tahunAjaran?.start_date);
+                          return (
+                            <Badge 
+                              key={`${payment.id}-${m.payment_type}-${m.month}`} 
+                              variant="secondary" 
+                              className={`text-xs ${
+                                m.payment_type === 'cash' 
+                                  ? 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20' 
+                                  : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
+                              }`}
+                            >
+                              {m.payment_type === 'cash' ? 'Kas' : 'Tabungan'}: {formatMonthName(m.month)} {year}
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-bold text-foreground">
@@ -153,8 +180,10 @@ export function Payments() {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="w-8 h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity" 
-                        onClick={() => handleDelete(payment.id, payment.student.student_name)}
+                        className="h-11 w-11 sm:h-8 sm:w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50" 
+                        aria-label="Batalkan transaksi"
+                        title="Batalkan transaksi"
+                        onClick={() => handleDelete(payment.id, payment.student?.student_name)}
                       >
                         <Trash className="w-4 h-4" />
                       </Button>
@@ -171,6 +200,7 @@ export function Payments() {
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
         academicYearId={academicYearId}
+        startDate={tahunAjaran?.start_date}
       />
     </div>
   );
