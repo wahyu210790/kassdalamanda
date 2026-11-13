@@ -8,30 +8,38 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2, Info, Check } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils';
+import { daftarBulanTahunAjaran } from '@/lib/tahunAjaran';
+import { useTahunAjaranAktif } from '@/hooks/useTahunAjaranAktif';
 
 interface PaymentFormProps {
   isOpen: boolean;
   onClose: () => void;
-  academicYearId: number;
+  academicYearId?: number;
+  startDate?: string | null;
 }
 
-export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProps) {
+export function PaymentForm({ isOpen, onClose, academicYearId: propYearId, startDate: propStartDate }: PaymentFormProps) {
   const queryClient = useQueryClient();
+  const { data: tahunAjaranAktif } = useTahunAjaranAktif();
+  const effectiveYearId = propYearId || tahunAjaranAktif?.id;
+  const effectiveStartDate = propStartDate ?? tahunAjaranAktif?.start_date;
+
   const [selectedStudent, setSelectedStudent] = useState<string>("");
-  const [selectedMonths, setSelectedMonths] = useState<any[]>([]);
+  const [selectedMonths, setSelectedMonths] = useState<Array<{ month: number; year: number; type: 'cash' | 'saving' }>>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch Students
+  // Fetch Students for this academic year
   const { data: students = [] } = useQuery({
-    queryKey: ['students-active', academicYearId],
+    queryKey: ['students-active', effectiveYearId],
     queryFn: async () => {
-      const response = await api.get(`/students?academic_year_id=${academicYearId}`);
+      if (!effectiveYearId) return [];
+      const response = await api.get(`/students?academic_year_id=${effectiveYearId}`);
       // Filter only active students
       return response.data.data.filter((s: any) => s.status === 'active');
     },
-    enabled: isOpen
+    enabled: isOpen && !!effectiveYearId
   });
 
   const filteredStudents = students.filter((s: any) => 
@@ -40,26 +48,65 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
 
   // Fetch Student's Unpaid Details (Settings & Paid Months)
   const { data: studentDetails, isLoading: detailsLoading } = useQuery({
-    queryKey: ['student-details', selectedStudent, academicYearId],
+    queryKey: ['student-details', selectedStudent, effectiveYearId],
     queryFn: async () => {
       if (!selectedStudent) return null;
       const response = await api.get(`/students/${selectedStudent}`);
       return response.data.data;
     },
-    enabled: !!selectedStudent && isOpen
+    enabled: !!selectedStudent && isOpen && !!effectiveYearId
   });
+
+  const academicMonths = daftarBulanTahunAjaran(effectiveStartDate);
+
+  const isMonthPaid = (month: number, type: 'cash' | 'saving'): boolean => {
+    if (!studentDetails || !studentDetails.payments) return false;
+    return studentDetails.payments.some((p: any) => 
+      p.months?.some((m: any) => {
+        const matchType = m.payment_type === type;
+        const matchMonth = m.month === month;
+        const matchYear = !m.academic_year_id || !effectiveYearId || m.academic_year_id === effectiveYearId;
+        return matchType && matchMonth && matchYear;
+      })
+    );
+  };
+
+  const handleMonthToggle = (month: number, year: number, type: 'cash' | 'saving') => {
+    // Tolak bulan yang sudah lunas (pertahanan ganda)
+    if (isMonthPaid(month, type)) return;
+
+    const existingIndex = selectedMonths.findIndex(
+      m => m.month === month && m.year === year && m.type === type
+    );
+    
+    if (existingIndex >= 0) {
+      setSelectedMonths(prev => prev.filter((_, i) => i !== existingIndex));
+    } else {
+      setSelectedMonths(prev => [...prev, { month, year, type }]);
+    }
+  };
+
+  const handleStudentChange = (val: string) => {
+    setSelectedStudent(val);
+    setSelectedMonths([]); // Kosongkan pilihan bulan saat ganti murid
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const payload = {
-        student_id: selectedStudent,
-        academic_year_id: academicYearId,
-        payment_date: new Date().toISOString().split('T')[0],
-        months: selectedMonths.map(m => ({
+      // Hanya kirim bulan yang belum lunas
+      const validMonths = selectedMonths
+        .filter(m => !isMonthPaid(m.month, m.type))
+        .map(m => ({
           month: m.month,
           year: m.year,
           payment_type: m.type
-        }))
+        }));
+
+      const payload = {
+        student_id: selectedStudent,
+        academic_year_id: effectiveYearId,
+        payment_date: new Date().toISOString().split('T')[0],
+        months: validMonths
       };
       const response = await api.post(`/payments`, payload);
       return response.data;
@@ -79,44 +126,7 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
     onClose();
   };
 
-  const handleMonthToggle = (monthStr: string, year: number, type: 'cash' | 'saving') => {
-    const month = parseInt(monthStr);
-    const existingIndex = selectedMonths.findIndex(m => m.month === month && m.year === year && m.type === type);
-    
-    if (existingIndex >= 0) {
-      setSelectedMonths(prev => prev.filter((_, i) => i !== existingIndex));
-    } else {
-      setSelectedMonths(prev => [...prev, { month, year, type }]);
-    }
-  };
-
-  // Generate 12 months for the academic year (July to June)
-  const generateAcademicMonths = () => {
-    const months = [];
-    let currentMonth = 7; // July
-    let currentYear = 2026; // Hardcoded start year for MVP
-
-    for (let i = 0; i < 12; i++) {
-      months.push({ month: currentMonth, year: currentYear });
-      currentMonth++;
-      if (currentMonth > 12) {
-        currentMonth = 1;
-        currentYear++;
-      }
-    }
-    return months;
-  };
-
-  const academicMonths = generateAcademicMonths();
-
-  const isMonthPaid = (month: number, year: number, type: string) => {
-    if (!studentDetails) return false;
-    return studentDetails.payments?.some((p: any) => 
-      p.months?.some((m: any) => m.month === month && m.year === year && m.payment_type === type)
-    );
-  };
-
-  // Hitung total bayar berdasarkan nominal dari backend (setting)
+  // Hitung total bayar berdasarkan nominal dari backend (setting), hanya bulan belum lunas
   const calculateTotal = () => {
     if (!studentDetails) return 0;
     const cashAmount = studentDetails.settings?.monthly_cash_amount || 10000;
@@ -124,22 +134,19 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
     
     let total = 0;
     selectedMonths.forEach(m => {
-      if (m.type === 'cash') total += cashAmount;
-      if (m.type === 'saving') total += savingAmount;
+      if (!isMonthPaid(m.month, m.type)) {
+        if (m.type === 'cash') total += cashAmount;
+        if (m.type === 'saving') total += savingAmount;
+      }
     });
     return total;
   };
 
   const totalAmount = calculateTotal();
-
-  const formatMonthName = (month: number) => {
-    const date = new Date();
-    date.setMonth(month - 1);
-    return date.toLocaleString('id-ID', { month: 'long' });
-  };
+  const validSelectedCount = selectedMonths.filter(m => !isMonthPaid(m.month, m.type)).length;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Catat Pembayaran Baru</DialogTitle>
@@ -151,7 +158,7 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
         <div className="space-y-6 py-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Pilih Siswa</label>
-            <Select value={selectedStudent} onValueChange={setSelectedStudent} disabled={mutation.isPending}>
+            <Select value={selectedStudent} onValueChange={handleStudentChange} disabled={mutation.isPending}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih siswa..." />
               </SelectTrigger>
@@ -198,12 +205,14 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-medium mb-3">Pilih Bulan (Centang yang dibayar)</h4>
+                    <h4 className="text-sm font-medium mb-1">Pilih Bulan (Centang yang dibayar)</h4>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Bulan yang sudah lunas ditandai “Lunas” dan tidak bisa dicentang lagi.
+                    </p>
                     <div className="grid grid-cols-2 gap-4">
-                      {academicMonths.map(({ month, year }) => {
-                        const monthName = formatMonthName(month);
-                        const isCashPaid = isMonthPaid(month, year, 'cash');
-                        const isSavingPaid = isMonthPaid(month, year, 'saving');
+                      {academicMonths.map(({ month, year, monthNameLong }) => {
+                        const isCashPaid = isMonthPaid(month, 'cash');
+                        const isSavingPaid = isMonthPaid(month, 'saving');
                         
                         const isCashSelected = selectedMonths.some(m => m.month === month && m.year === year && m.type === 'cash');
                         const isSavingSelected = selectedMonths.some(m => m.month === month && m.year === year && m.type === 'saving');
@@ -211,33 +220,47 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
                         return (
                           <div key={`${month}-${year}`} className="border p-3 rounded-lg space-y-2 bg-card">
                             <div className="font-semibold text-sm border-b pb-1 mb-2">
-                              {monthName} {year}
+                              {monthNameLong} {year}
                             </div>
+                            
+                            {/* Opsi Kas */}
                             <div className="flex items-center space-x-2">
                               <Checkbox 
                                 id={`cash-${month}-${year}`} 
                                 disabled={isCashPaid || mutation.isPending}
                                 checked={isCashPaid || isCashSelected}
-                                onCheckedChange={() => handleMonthToggle(month.toString(), year, 'cash')}
+                                onCheckedChange={() => handleMonthToggle(month, year, 'cash')}
                               />
                               <label
                                 htmlFor={`cash-${month}-${year}`}
-                                className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${isCashPaid ? 'text-muted-foreground' : ''}`}
+                                className={`text-sm font-medium leading-none flex items-center gap-1 ${
+                                  isCashPaid 
+                                    ? 'text-success font-semibold cursor-not-allowed' 
+                                    : 'cursor-pointer'
+                                }`}
                               >
+                                {isCashPaid && <Check className="w-3.5 h-3.5 text-success" />}
                                 Kas {isCashPaid && '(Lunas)'}
                               </label>
                             </div>
+
+                            {/* Opsi Tabungan */}
                             <div className="flex items-center space-x-2">
                               <Checkbox 
                                 id={`saving-${month}-${year}`} 
                                 disabled={isSavingPaid || mutation.isPending}
                                 checked={isSavingPaid || isSavingSelected}
-                                onCheckedChange={() => handleMonthToggle(month.toString(), year, 'saving')}
+                                onCheckedChange={() => handleMonthToggle(month, year, 'saving')}
                               />
                               <label
                                 htmlFor={`saving-${month}-${year}`}
-                                className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${isSavingPaid ? 'text-muted-foreground' : ''}`}
+                                className={`text-sm font-medium leading-none flex items-center gap-1 ${
+                                  isSavingPaid 
+                                    ? 'text-success font-semibold cursor-not-allowed' 
+                                    : 'cursor-pointer'
+                                }`}
                               >
+                                {isSavingPaid && <Check className="w-3.5 h-3.5 text-success" />}
                                 Tabungan {isSavingPaid && '(Lunas)'}
                               </label>
                             </div>
@@ -278,7 +301,7 @@ export function PaymentForm({ isOpen, onClose, academicYearId }: PaymentFormProp
             <Button 
               type="button" 
               onClick={() => mutation.mutate()} 
-              disabled={mutation.isPending || selectedMonths.length === 0 || !selectedStudent}
+              disabled={mutation.isPending || validSelectedCount === 0 || !selectedStudent}
             >
               {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Simpan Pembayaran
