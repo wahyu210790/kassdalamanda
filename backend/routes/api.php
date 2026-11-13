@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ExpenseCategoryController;
+use App\Http\Controllers\Api\AdditionalIncomeController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\ReportController;
 
@@ -40,9 +41,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Payments
     Route::apiResource('payments', PaymentController::class)->only(['index', 'store', 'show', 'destroy']);
 
+    // Wallets & Additional Incomes
+    Route::get('/wallets/summary', [AdditionalIncomeController::class, 'walletsSummary']);
+    Route::apiResource('additional-incomes', AdditionalIncomeController::class);
+
     // Expenses & Categories
     Route::get('/expense-categories', [ExpenseCategoryController::class, 'index']);
-    Route::apiResource('expenses', ExpenseController::class)->only(['index', 'store', 'destroy']);
+    Route::apiResource('expenses', ExpenseController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 
     // Settings
     Route::get('/settings', [SettingController::class, 'index']);
