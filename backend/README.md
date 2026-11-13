@@ -56,3 +56,19 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+---
+
+## Catatan Fitur Kas Alamanda: Pemasukan Tambahan & Tiga Dompet Terpisah
+
+1. **Tiga Pos / Dompet Terpisah:**
+   - **Saldo Kas (`cash`):** Dihitung murni dari pembayaran iuran kas bulanan siswa dikurangi pengeluaran yang diambil dari `Saldo Kas`.
+   - **Saldo Tabungan (`saving`):** Dihitung murni dari setoran tabungan bulanan siswa dikurangi pengeluaran yang diambil dari `Saldo Tabungan`.
+   - **Pemasukan tambahan (`additional_income`):** Mencatat dana masuk di luar iuran kas dan tabungan siswa pada tahun ajaran aktif, dikurangi pengeluaran yang diambil dari `Pemasukan tambahan`. Pemasukan tambahan **tidak pernah** ditambahkan ke `Saldo Kas`, dan aplikasi tidak menampilkan angka gabungan seluruh dompet.
+2. **Batas Pengeluaran per Dompet:**
+   - Setiap pencatatan atau pengubahan pengeluaran wajib memilih dompet sumber (`Diambil dari`) dan divalidasi agar nominal tidak melebihi `Sisa` dompet yang dipilih (`422 Nominal melebihi Sisa.`).
+   - Pengubahan atau penghapusan data pemasukan tambahan juga divalidasi agar total `Terkumpul` tidak menjadi lebih kecil daripada nominal yang `Sudah dipakai` (`422 Sisa tidak cukup.`).
+3. **Peringatan Keamanan Data Live:**
+   - **JANGAN** mengetes penyimpanan/penghapusan data terhadap API produksi (`api.storytech.id` / `kas-alamanda.storytech.id`). Selalu gunakan backend lokal (`http://127.0.0.1:8000`) dan pengujian otomatis (`php artisan test` dengan SQLite `:memory:`).
+   - **JANGAN** melakukan `git push` atau menggabungkan cabang ke `main` tanpa izin tertulis.
+
