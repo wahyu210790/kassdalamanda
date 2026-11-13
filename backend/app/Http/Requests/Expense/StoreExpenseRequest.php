@@ -32,4 +32,12 @@ class StoreExpenseRequest extends FormRequest
             'description' => ['nullable', 'string'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'category_id.required' => 'Kategori wajib dipilih.',
+            'category_id.exists' => 'Kategori tidak ditemukan.',
+        ];
+    }
 }

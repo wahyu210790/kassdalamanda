@@ -11,15 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
-import { formatRupiah } from '@/lib/utils';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 const expenseSchema = z.object({
   title: z.string().min(3, "Judul minimal 3 karakter"),
   description: z.string().optional(),
-  amount: z.coerce.number().min(500, "Nominal minimal Rp 500"),
+  amount: z.number().min(500, "Nominal minimal Rp 500"),
   expense_date: z.string().min(1, "Tanggal wajib diisi"),
-  expense_category_id: z.coerce.number().min(1, "Pilih kategori"),
+  category_id: z.number().min(1, "Kategori wajib dipilih."),
   source: z.enum(['cash', 'saving']),
 });
 
@@ -35,7 +34,7 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
   const queryClient = useQueryClient();
   const [errorMsg, setErrorMsg] = useState('');
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
     queryKey: ['expense-categories'],
     queryFn: async () => {
       const response = await api.get('/expense-categories');
@@ -60,7 +59,7 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
   });
 
   const watchSource = watch('source');
-  const watchCategoryId = watch('expense_category_id');
+  const watchCategoryId = watch('category_id');
 
   const mutation = useMutation({
     mutationFn: async (data: ExpenseFormValues) => {
@@ -75,7 +74,13 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
     },
     onError: (err: any) => {
       if (err.response?.status === 422) {
-        setErrorMsg(err.response.data.message || 'Validasi gagal');
+        const errorData = err.response.data;
+        if (errorData.errors) {
+          const fieldErrors = Object.values(errorData.errors).flat() as string[];
+          setErrorMsg(fieldErrors.join(' ') || errorData.message || 'Validasi gagal');
+        } else {
+          setErrorMsg(errorData.message || 'Validasi gagal');
+        }
       } else {
         setErrorMsg('Gagal menyimpan pengeluaran. Saldo mungkin tidak mencukupi.');
       }
@@ -93,8 +98,10 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
     onClose();
   };
 
+  const hasNoCategories = !isCategoriesLoading && categories.length === 0;
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Catat Pengeluaran Baru</DialogTitle>
@@ -103,13 +110,21 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
+        {hasNoCategories && (
+          <div className="p-3 text-sm rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-200 border border-amber-500/30 flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+            <div>Belum ada kategori pengeluaran. Kategori perlu ditambahkan dulu sebelum mencatat pengeluaran.</div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-2">
             <label className="text-sm font-medium">Judul / Keperluan</label>
             <Input 
               placeholder="Contoh: Beli Sapu Kelas" 
               {...register('title')} 
               className={errors.title ? 'border-destructive' : ''}
+              disabled={hasNoCategories || mutation.isPending}
             />
             {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
           </div>
@@ -120,8 +135,9 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
               <Input 
                 type="number"
                 placeholder="50000" 
-                {...register('amount')} 
+                {...register('amount', { valueAsNumber: true })} 
                 className={errors.amount ? 'border-destructive' : ''}
+                disabled={hasNoCategories || mutation.isPending}
               />
               {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
             </div>
@@ -132,6 +148,7 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
                 type="date"
                 {...register('expense_date')} 
                 className={errors.expense_date ? 'border-destructive' : ''}
+                disabled={hasNoCategories || mutation.isPending}
               />
               {errors.expense_date && <p className="text-xs text-destructive">{errors.expense_date.message}</p>}
             </div>
@@ -142,9 +159,10 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
               <label className="text-sm font-medium">Kategori</label>
               <Select 
                 value={watchCategoryId?.toString() || ''} 
-                onValueChange={(val) => setValue('expense_category_id', parseInt(val))}
+                onValueChange={(val: string) => setValue('category_id', parseInt(val, 10), { shouldValidate: true })}
+                disabled={hasNoCategories || mutation.isPending}
               >
-                <SelectTrigger className={errors.expense_category_id ? 'border-destructive' : ''}>
+                <SelectTrigger className={errors.category_id ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Pilih..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -153,7 +171,7 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
                   ))}
                 </SelectContent>
               </Select>
-              {errors.expense_category_id && <p className="text-xs text-destructive">{errors.expense_category_id.message}</p>}
+              {errors.category_id && <p className="text-xs text-destructive">{errors.category_id.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -161,6 +179,7 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
               <Select 
                 value={watchSource} 
                 onValueChange={(val: 'cash' | 'saving') => setValue('source', val)}
+                disabled={hasNoCategories || mutation.isPending}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -179,11 +198,12 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
               placeholder="Catatan tambahan..." 
               {...register('description')} 
               rows={3}
+              disabled={hasNoCategories || mutation.isPending}
             />
           </div>
 
           {errorMsg && (
-            <div className="p-3 text-sm rounded-lg bg-destructive/15 text-destructive border border-destructive/20 font-medium">
+            <div className="p-3 text-sm rounded-lg bg-destructive/15 text-destructive border border-destructive/20 font-medium break-words">
               {errorMsg}
             </div>
           )}
@@ -192,7 +212,11 @@ export function ExpenseForm({ isOpen, onClose, academicYearId }: ExpenseFormProp
             <Button type="button" variant="outline" onClick={handleClose} disabled={mutation.isPending}>
               Batal
             </Button>
-            <Button type="submit" variant="destructive" disabled={mutation.isPending}>
+            <Button 
+              type="submit" 
+              variant="destructive" 
+              disabled={mutation.isPending || hasNoCategories}
+            >
               {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Simpan Pengeluaran
             </Button>

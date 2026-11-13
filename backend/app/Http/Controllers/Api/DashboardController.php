@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\DashboardService;
 use App\Models\AcademicYear;
+use App\Http\Resources\ExpenseResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -29,7 +30,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'data' => array_merge($summary, [
-                'recent_expenses' => $recentExpenses
+                'recent_expenses' => ExpenseResource::collection($recentExpenses)->resolve()
             ])
         ]);
     }

@@ -4,10 +4,13 @@ namespace App\Services;
 
 use App\Models\Expense;
 use App\Models\PaymentMonth;
+use App\Models\Admin;
 use App\Enums\ExpenseSource;
 use App\Enums\PaymentType;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Exception;
+use Throwable;
 
 class ExpenseService
 {
@@ -46,10 +49,15 @@ class ExpenseService
                 'expense_date' => $data['expense_date'],
             ]);
 
-            activity()
-                ->performedOn($expense)
-                ->causedBy($adminId)
-                ->log("Admin mencatat pengeluaran: " . $expense->title);
+            try {
+                $causer = Admin::find($adminId);
+                activity()
+                    ->performedOn($expense)
+                    ->causedBy($causer ?: $adminId)
+                    ->log("Admin mencatat pengeluaran: " . $expense->title);
+            } catch (Throwable $e) {
+                Log::warning('Activity log failed: ' . $e->getMessage());
+            }
 
             return $expense;
         });
@@ -60,10 +68,15 @@ class ExpenseService
         DB::transaction(function () use ($expense, $adminId) {
             $expense->delete();
             
-            activity()
-                ->performedOn($expense)
-                ->causedBy($adminId)
-                ->log("Admin menghapus pengeluaran: " . $expense->title);
+            try {
+                $causer = Admin::find($adminId);
+                activity()
+                    ->performedOn($expense)
+                    ->causedBy($causer ?: $adminId)
+                    ->log("Admin menghapus pengeluaran: " . $expense->title);
+            } catch (Throwable $e) {
+                Log::warning('Activity log failed: ' . $e->getMessage());
+            }
         });
     }
 }
