@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
 import { Plus, Search, Trash, AlertTriangle } from 'lucide-react';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, formatTanggalIndonesia } from '@/lib/utils';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table';
@@ -168,7 +168,7 @@ export function Payments() {
                 filteredPayments.map((payment) => (
                   <TableRow key={payment.id} className="group">
                     <TableCell className="font-medium whitespace-nowrap">
-                      {payment.payment_date}
+                      {formatTanggalIndonesia(payment.payment_date)}
                     </TableCell>
                     <TableCell className="font-semibold">{payment.student?.student_name}</TableCell>
                     <TableCell>
