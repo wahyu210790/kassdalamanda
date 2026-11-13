@@ -32,3 +32,16 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
+
+export async function siapkanCsrfCookie(): Promise<void> {
+  if (import.meta.env.DEV) {
+    try {
+      await axios.get('/sanctum/csrf-cookie', { withCredentials: true });
+    } catch (err) {
+      console.warn('Gagal mengambil CSRF cookie di mode dev, lanjut login token:', err);
+    }
+    return;
+  }
+
+  await api.get(csrfCookieURL);
+}

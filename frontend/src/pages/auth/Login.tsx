@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import api, { csrfCookieURL } from '@/lib/axios';
+import api, { siapkanCsrfCookie } from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -39,7 +39,7 @@ export function Login() {
 
     try {
       // Create CSRF cookie first for Sanctum
-      await api.get(csrfCookieURL);
+      await siapkanCsrfCookie();
       
       const response = await api.post('/login', data);
       const { access_token, admin } = response.data;
