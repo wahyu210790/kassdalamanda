@@ -140,21 +140,35 @@ class PerbaikanBug01Test extends TestCase
 
         Sanctum::actingAs($admin);
 
-        // POST hanya dengan expense_category_id -> 422
+        // POST tanpa title dan source -> 422 dengan pesan Bahasa Indonesia
         $failedRes = $this->postJson('/api/expenses', [
             'academic_year_id' => $ay->id,
             'expense_category_id' => $category->id,
-            'source' => 'cash',
-            'title' => 'Beli Spidol',
             'amount' => 5000,
             'expense_date' => '2026-07-10',
         ]);
         $failedRes->assertStatus(422);
         $failedRes->assertJsonValidationErrors([
-            'category_id' => 'Kategori wajib dipilih.',
+            'title' => 'Keterangan wajib diisi.',
+            'source' => 'Diambil dari wajib dipilih.',
         ]);
 
-        // POST dengan category_id -> 201
+        // POST tanpa category_id -> 201 (kategori opsional)
+        $noCategoryRes = $this->postJson('/api/expenses', [
+            'academic_year_id' => $ay->id,
+            'source' => 'cash',
+            'title' => 'Beli Penghapus Papan',
+            'amount' => 3000,
+            'expense_date' => '2026-07-10',
+        ]);
+        $noCategoryRes->assertStatus(201);
+        $this->assertDatabaseHas('expenses', [
+            'title' => 'Beli Penghapus Papan',
+            'category_id' => null,
+            'amount' => 3000,
+        ]);
+
+        // POST dengan category_id yang sah -> 201
         $successRes = $this->postJson('/api/expenses', [
             'academic_year_id' => $ay->id,
             'category_id' => $category->id,
