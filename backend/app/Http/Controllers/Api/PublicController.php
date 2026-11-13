@@ -14,9 +14,10 @@ class PublicController extends Controller
 
     public function searchStudent(Request $request)
     {
-        $query = $request->query('query');
-        
-        if (!$query || strlen($query) < 3) {
+        $query = trim((string) $request->query('query', ''));
+        $jumlahHurufAngka = preg_match_all('/[\p{L}\p{N}]/u', $query);
+
+        if ($jumlahHurufAngka < 3) {
             return response()->json([
                 'message' => 'Masukkan minimal 3 huruf nama siswa.'
             ], 400);
@@ -29,8 +30,10 @@ class PublicController extends Controller
             ], 400);
         }
 
+        $aman = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $query);
+
         $students = Student::where('academic_year_id', $activeYear->id)
-            ->where('student_name', 'LIKE', '%' . $query . '%')
+            ->whereRaw("student_name LIKE ? ESCAPE '!'", ['%' . $aman . '%'])
             ->where('status', 'active')
             ->with(['paymentMonths'])
             ->get()
