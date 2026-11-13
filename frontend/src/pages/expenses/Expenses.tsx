@@ -222,7 +222,7 @@ export function Expenses() {
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    {formatTanggalIndonesia(expense.expense_date)} · {labelDompet(expense.source)}
+                    {formatTanggalIndonesia(expense.expense_date)}
                   </p>
 
                   {expense.description && (
