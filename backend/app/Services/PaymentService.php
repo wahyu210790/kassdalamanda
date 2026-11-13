@@ -16,6 +16,21 @@ use Throwable;
 
 class PaymentService
 {
+    private const MONTH_NAMES = [
+        1 => 'Januari',
+        2 => 'Februari',
+        3 => 'Maret',
+        4 => 'April',
+        5 => 'Mei',
+        6 => 'Juni',
+        7 => 'Juli',
+        8 => 'Agustus',
+        9 => 'September',
+        10 => 'Oktober',
+        11 => 'November',
+        12 => 'Desember',
+    ];
+
     public function createPayment(array $data, int $adminId): Payment
     {
         // 1. Validasi: cek apakah ada bulan yang sudah pernah dibayar
@@ -27,7 +42,7 @@ class PaymentService
                 ->exists();
 
             if ($isPaid) {
-                $monthName = date("F", mktime(0, 0, 0, $m['month'], 10));
+                $monthName = self::MONTH_NAMES[(int) $m['month']] ?? (string) $m['month'];
                 $typeStr = $m['payment_type'] === 'cash' ? 'Uang Kas' : 'Uang Tabungan';
                 throw ValidationException::withMessages([
                     'months' => "Bulan {$monthName} untuk {$typeStr} sudah pernah dibayar."
@@ -45,13 +60,18 @@ class PaymentService
                 $totalAmount += ($m['payment_type'] === 'cash') ? $cashNominal : $savingNominal;
             }
 
+            $hasCash = collect($data['months'])->contains('payment_type', 'cash');
+            $hasSaving = collect($data['months'])->contains('payment_type', 'saving');
+            $overallType = ($hasCash && $hasSaving) ? PaymentType::Both : ($hasCash ? PaymentType::Cash : PaymentType::Saving);
+
             $payment = Payment::create([
                 'academic_year_id' => $data['academic_year_id'],
                 'student_id' => $data['student_id'],
                 'admin_id' => $adminId,
                 'payment_date' => $data['payment_date'],
                 'total_amount' => $totalAmount,
-                'payment_type' => count($data['months']) > 1 ? 'both' : $data['months'][0]['payment_type'],
+                'payment_type' => $overallType,
+                'note' => $data['note'] ?? null,
             ]);
 
             foreach ($data['months'] as $m) {

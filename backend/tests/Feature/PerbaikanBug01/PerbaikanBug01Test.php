@@ -14,6 +14,7 @@ use App\Models\ExpenseCategory;
 use App\Models\Setting;
 use App\Models\Payment;
 use App\Models\Expense;
+use App\Enums\PaymentType;
 use App\Services\PaymentService;
 
 class PerbaikanBug01Test extends TestCase
@@ -257,5 +258,130 @@ class PerbaikanBug01Test extends TestCase
         ]);
 
         $this->assertEquals($ay->name, $res->json('data.academic_year.name'));
+    }
+
+    public function test_07_jenis_pembayaran_both_hanya_jika_kas_dan_tabungan_bersama(): void
+    {
+        $admin = $this->createAdmin();
+        $ay = $this->createAcademicYear();
+        $this->initSettings();
+        $service = app(PaymentService::class);
+
+        Sanctum::actingAs($admin);
+
+        // Murid 1: dua bulan kas saja -> payment_type = cash (bukan both)
+        $student1 = Student::create([
+            'academic_year_id' => $ay->id,
+            'student_name' => 'Murid Kas Dua Bulan',
+            'parent_name' => 'Wali 1',
+            'phone' => '081200000101',
+            'status' => 'active',
+        ]);
+
+        $payment1 = $service->createPayment([
+            'student_id' => $student1->id,
+            'academic_year_id' => $ay->id,
+            'payment_date' => '2026-07-10',
+            'months' => [
+                ['month' => 7, 'year' => 2026, 'payment_type' => 'cash'],
+                ['month' => 8, 'year' => 2026, 'payment_type' => 'cash'],
+            ],
+        ], $admin->id);
+
+        $this->assertEquals(PaymentType::Cash, $payment1->fresh()->payment_type);
+        $this->assertEquals(20000, $payment1->total_amount);
+        $this->assertCount(2, $payment1->paymentMonths);
+        foreach ($payment1->paymentMonths as $pm) {
+            $this->assertEquals(PaymentType::Cash, $pm->payment_type);
+        }
+
+        // Murid 2: dua bulan tabungan saja -> payment_type = saving (bukan both)
+        $student2 = Student::create([
+            'academic_year_id' => $ay->id,
+            'student_name' => 'Murid Tabungan Dua Bulan',
+            'parent_name' => 'Wali 2',
+            'phone' => '081200000102',
+            'status' => 'active',
+        ]);
+
+        $payment2 = $service->createPayment([
+            'student_id' => $student2->id,
+            'academic_year_id' => $ay->id,
+            'payment_date' => '2026-07-11',
+            'months' => [
+                ['month' => 7, 'year' => 2026, 'payment_type' => 'saving'],
+                ['month' => 8, 'year' => 2026, 'payment_type' => 'saving'],
+            ],
+        ], $admin->id);
+
+        $this->assertEquals(PaymentType::Saving, $payment2->fresh()->payment_type);
+        $this->assertEquals(10000, $payment2->total_amount);
+        $this->assertCount(2, $payment2->paymentMonths);
+        foreach ($payment2->paymentMonths as $pm) {
+            $this->assertEquals(PaymentType::Saving, $pm->payment_type);
+        }
+
+        // Murid 3: satu bulan kas + satu bulan tabungan -> payment_type = both
+        $student3 = Student::create([
+            'academic_year_id' => $ay->id,
+            'student_name' => 'Murid Gabungan',
+            'parent_name' => 'Wali 3',
+            'phone' => '081200000103',
+            'status' => 'active',
+        ]);
+
+        $payment3 = $service->createPayment([
+            'student_id' => $student3->id,
+            'academic_year_id' => $ay->id,
+            'payment_date' => '2026-07-12',
+            'note' => 'Catatan uji',
+            'months' => [
+                ['month' => 7, 'year' => 2026, 'payment_type' => 'cash'],
+                ['month' => 7, 'year' => 2026, 'payment_type' => 'saving'],
+            ],
+        ], $admin->id);
+
+        $this->assertEquals(PaymentType::Both, $payment3->fresh()->payment_type);
+        $this->assertEquals(15000, $payment3->total_amount);
+        $this->assertEquals('Catatan uji', $payment3->fresh()->note);
+        $types3 = $payment3->paymentMonths->pluck('payment_type')->all();
+        $this->assertContains(PaymentType::Cash, $types3);
+        $this->assertContains(PaymentType::Saving, $types3);
+        $this->assertNotContains(PaymentType::Both, $types3);
+
+        // Murid 4: satu bulan kas saja -> payment_type = cash
+        $student4 = Student::create([
+            'academic_year_id' => $ay->id,
+            'student_name' => 'Murid Kas Satu Bulan',
+            'parent_name' => 'Wali 4',
+            'phone' => '081200000104',
+            'status' => 'active',
+        ]);
+
+        $payment4 = $service->createPayment([
+            'student_id' => $student4->id,
+            'academic_year_id' => $ay->id,
+            'payment_date' => '2026-07-13',
+            'months' => [
+                ['month' => 7, 'year' => 2026, 'payment_type' => 'cash'],
+            ],
+        ], $admin->id);
+
+        $this->assertEquals(PaymentType::Cash, $payment4->fresh()->payment_type);
+
+        // Percobaan bayar ulang bulan kas yang sama (bulan 7 pada murid 1) -> 422 & nama bulan Indonesia "Juli" (bukan "July")
+        $duplicateRes = $this->postJson('/api/payments', [
+            'student_id' => $student1->id,
+            'academic_year_id' => $ay->id,
+            'payment_date' => '2026-07-14',
+            'months' => [
+                ['month' => 7, 'year' => 2026, 'payment_type' => 'cash'],
+            ],
+        ]);
+
+        $duplicateRes->assertStatus(422);
+        $message = $duplicateRes->json('message');
+        $this->assertStringContainsString('Juli', $message);
+        $this->assertStringNotContainsString('July', $message);
     }
 }
