@@ -17,10 +17,15 @@ import { cn, formatRupiah, labelDompet } from '@/lib/utils';
 const expenseSchema = z.object({
   title: z.string().min(3, "Judul minimal 3 karakter"),
   description: z.string().optional(),
-  amount: z.number({ message: "Nominal wajib diisi" }).min(500, "Nominal minimal Rp 500"),
+  amount: z
+    .number({ message: "Nominal harus lebih dari 0." })
+    .min(1, "Nominal harus lebih dari 0.")
+    .max(1000000000, "Nominal maksimal Rp 1.000.000.000."),
   expense_date: z.string().min(1, "Tanggal wajib diisi"),
   category_id: z.number({ message: "Kategori wajib dipilih." }).min(1, "Kategori wajib dipilih."),
-  source: z.enum(['cash', 'saving', 'additional_income']),
+  source: z.enum(['cash', 'saving', 'additional_income'], {
+    message: "Diambil dari wajib dipilih.",
+  }),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
@@ -81,7 +86,6 @@ export function ExpenseForm({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       expense_date: new Date().toISOString().split('T')[0],
-      source: 'cash',
     }
   });
 
@@ -100,7 +104,7 @@ export function ExpenseForm({
           amount: editingExpense.amount,
           expense_date: editingExpense.expense_date.slice(0, 10),
           category_id: resolvedCategoryId || 0,
-          source: editingExpense.source || 'cash',
+          source: editingExpense.source,
         });
       } else {
         reset({
@@ -109,24 +113,43 @@ export function ExpenseForm({
           amount: undefined as unknown as number,
           expense_date: new Date().toISOString().split('T')[0],
           category_id: undefined as unknown as number,
-          source: 'cash',
+          source: undefined as unknown as ExpenseFormValues['source'],
         });
       }
     }
   }, [isOpen, editingExpense, categories, reset]);
 
-  const watchSource = watch('source') || 'cash';
+  const watchSource = watch('source');
   const watchCategoryId = watch('category_id');
   const watchAmount = watch('amount');
 
-  const rawWalletSisa = walletsSummary?.[watchSource]?.sisa ?? 0;
+  const rawWalletSisa = watchSource ? (walletsSummary?.[watchSource]?.sisa ?? 0) : 0;
   const availableSisa =
-    editingExpense && editingExpense.source === watchSource
+    watchSource && editingExpense && editingExpense.source === watchSource
       ? rawWalletSisa + editingExpense.amount
       : rawWalletSisa;
 
   const numericAmount = typeof watchAmount === 'number' && !Number.isNaN(watchAmount) ? watchAmount : 0;
-  const isOverBalance = walletsSummary !== null && numericAmount > availableSisa;
+  const isEditingSameSourceNotIncreasing = Boolean(
+    editingExpense && watchSource === editingExpense.source && numericAmount > 0 && numericAmount <= editingExpense.amount
+  );
+  const isOverBalance =
+    walletsSummary !== null &&
+    Boolean(watchSource) &&
+    !isEditingSameSourceNotIncreasing &&
+    numericAmount > availableSisa;
+
+  const isEditingFromAdditionalIncome = editingExpense?.source === 'additional_income';
+  const hasAdditionalIncomeData = Boolean(
+    walletsSummary &&
+      (walletsSummary.additional_income.terkumpul !== 0 ||
+        walletsSummary.additional_income.dipakai !== 0)
+  );
+  const showAdditionalIncomeOption = hasAdditionalIncomeData || isEditingFromAdditionalIncome;
+  const isAdditionalIncomeZeroDisabled =
+    !isEditingFromAdditionalIncome &&
+    hasAdditionalIncomeData &&
+    (walletsSummary?.additional_income.sisa ?? 0) <= 0;
 
   const mutation = useMutation({
     mutationFn: async (data: ExpenseFormValues) => {
@@ -198,7 +221,9 @@ export function ExpenseForm({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Judul / Keperluan</label>
+            <label className="text-sm font-medium">
+              Judul / Keperluan <span className="text-destructive">*</span>
+            </label>
             <Input 
               placeholder="Contoh: Beli Sapu Kelas" 
               {...register('title')} 
@@ -210,7 +235,9 @@ export function ExpenseForm({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Nominal (Rp)</label>
+              <label className="text-sm font-medium">
+                Nominal (Rp) <span className="text-destructive">*</span>
+              </label>
               <Input 
                 type="number"
                 placeholder="50000" 
@@ -228,7 +255,9 @@ export function ExpenseForm({
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Tanggal</label>
+              <label className="text-sm font-medium">
+                Tanggal <span className="text-destructive">*</span>
+              </label>
               <Input 
                 type="date"
                 {...register('expense_date')} 
@@ -241,7 +270,9 @@ export function ExpenseForm({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Kategori</label>
+              <label className="text-sm font-medium">
+                Kategori <span className="text-destructive">*</span>
+              </label>
               <Select 
                 value={watchCategoryId ? watchCategoryId.toString() : ''} 
                 onValueChange={(val: string) => setValue('category_id', parseInt(val, 10), { shouldValidate: true })}
@@ -260,9 +291,11 @@ export function ExpenseForm({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Diambil dari</label>
+              <label className="text-sm font-medium">
+                Diambil dari <span className="text-destructive">*</span>
+              </label>
               <Select 
-                value={watchSource} 
+                value={watchSource || ''} 
                 onValueChange={(val: 'cash' | 'saving' | 'additional_income') =>
                   setValue('source', val, { shouldValidate: true })
                 }
@@ -270,18 +303,29 @@ export function ExpenseForm({
               >
                 <SelectTrigger
                   className={cn(
+                    errors.source && 'border-destructive',
                     isOverBalance && 'border-destructive ring-1 ring-destructive bg-destructive/5'
                   )}
                 >
-                  <SelectValue />
+                  <SelectValue placeholder="Pilih..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Saldo Kas</SelectItem>
                   <SelectItem value="saving">Saldo Tabungan</SelectItem>
-                  <SelectItem value="additional_income">Pemasukan tambahan</SelectItem>
+                  {showAdditionalIncomeOption && (
+                    <SelectItem
+                      value="additional_income"
+                      disabled={isAdditionalIncomeZeroDisabled}
+                    >
+                      {isAdditionalIncomeZeroDisabled
+                        ? 'Pemasukan tambahan (Sisa Rp 0)'
+                        : 'Pemasukan tambahan'}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
-              {walletsSummary && (
+              {errors.source && <p className="text-xs text-destructive">{errors.source.message}</p>}
+              {walletsSummary && watchSource && (
                 <div
                   className={cn(
                     'text-xs px-2.5 py-1.5 rounded-md border flex items-center justify-between',
@@ -320,7 +364,7 @@ export function ExpenseForm({
             <Button 
               type="submit" 
               className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-              disabled={mutation.isPending || hasNoCategories || isOverBalance}
+              disabled={mutation.isPending || hasNoCategories || !watchSource || isOverBalance}
             >
               {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Simpan Pengeluaran

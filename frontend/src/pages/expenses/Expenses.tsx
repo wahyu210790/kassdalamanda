@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
 import { Plus, Search, Trash, Pencil, Receipt, Wallet, Coins, Sparkles, Loader2 } from 'lucide-react';
-import { formatRupiah, formatTanggalIndonesia, labelDompet } from '@/lib/utils';
+import { cn, formatRupiah, formatTanggalIndonesia, labelDompet } from '@/lib/utils';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table';
@@ -85,6 +85,12 @@ export function Expenses() {
 
   const is404Year = (yearError as any)?.response?.status === 404;
 
+  const showAdditionalIncomeCard = Boolean(
+    walletsSummary &&
+      (walletsSummary.additional_income.terkumpul !== 0 ||
+        walletsSummary.additional_income.dipakai !== 0)
+  );
+
   const getSourceBadgeClass = (source: string) => {
     if (source === 'cash') {
       return 'border-blue-200 text-blue-700 bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:bg-blue-950/40';
@@ -120,8 +126,13 @@ export function Expenses() {
         </div>
       )}
 
-      {/* Kartu Ringkas Sisa Ketiga Dompet */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Kartu Ringkas Sisa Dompet */}
+      <div
+        className={cn(
+          'grid grid-cols-1 gap-4',
+          showAdditionalIncomeCard ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+        )}
+      >
         <Card className="border-blue-200/80 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 shadow-sm">
           <CardContent className="p-4 flex items-center gap-3.5">
             <div className="p-2.5 rounded-xl bg-blue-600 text-white shrink-0">
@@ -150,19 +161,21 @@ export function Expenses() {
           </CardContent>
         </Card>
 
-        <Card className="border-purple-200/80 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 shrink-0">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Sisa Pemasukan tambahan</p>
-              <p className="text-xl font-bold text-purple-700 dark:text-purple-300">
-                {formatRupiah(walletsSummary?.additional_income.sisa ?? 0)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {showAdditionalIncomeCard && (
+          <Card className="border-purple-200/80 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 shadow-sm">
+            <CardContent className="p-4 flex items-center gap-3.5">
+              <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 shrink-0">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Sisa Pemasukan tambahan</p>
+                <p className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                  {formatRupiah(walletsSummary?.additional_income.sisa ?? 0)}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="bg-card border rounded-xl shadow-sm overflow-hidden flex flex-col">
@@ -181,92 +194,145 @@ export function Expenses() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Judul</TableHead>
-                <TableHead>Kategori</TableHead>
-                <TableHead>Diambil dari</TableHead>
-                <TableHead className="text-right">Nominal</TableHead>
-                <TableHead className="text-right w-[140px]">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isYearLoading || isExpensesLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                    Memuat data pengeluaran...
-                  </TableCell>
-                </TableRow>
-              ) : filteredExpenses.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center justify-center">
-                      <Receipt className="w-8 h-8 text-muted-foreground/30 mb-2" />
-                      <p>Tidak ada data pengeluaran ditemukan.</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredExpenses.map((expense) => (
-                  <TableRow key={expense.id} className="group">
-                    <TableCell className="font-medium whitespace-nowrap">
-                      {formatTanggalIndonesia(expense.expense_date)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-semibold">{expense.title}</div>
-                      {expense.description && (
-                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {expense.description}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>{expense.category || '-'}</TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={getSourceBadgeClass(expense.source)}
-                      >
-                        {labelDompet(expense.source)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-rose-600">
+        {isYearLoading || isExpensesLoading ? (
+          <div className="p-12 text-center text-muted-foreground">
+            Memuat data pengeluaran...
+          </div>
+        ) : filteredExpenses.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+            <Receipt className="w-8 h-8 text-muted-foreground/30 mb-2" />
+            <p>Tidak ada data pengeluaran ditemukan.</p>
+          </div>
+        ) : (
+          <>
+            {/* Tampilan Kartu di HP (< md) */}
+            <div className="divide-y md:hidden">
+              {filteredExpenses.map((expense) => (
+                <div key={expense.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-bold text-foreground break-words min-w-0">
+                      {expense.title}
+                    </p>
+                    <span className="font-bold text-rose-600 dark:text-rose-400 shrink-0">
                       -{formatRupiah(expense.amount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="inline-flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-11 w-11 sm:h-9 sm:w-9 text-foreground hover:bg-muted"
-                          aria-label="Ubah"
-                          title="Ubah"
-                          onClick={() => handleOpenEdit(expense)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          type="button"
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-11 w-11 sm:h-9 sm:w-9 text-rose-500 hover:text-rose-600 hover:bg-rose-50" 
-                          aria-label="Hapus"
-                          title="Hapus"
-                          onClick={() => setDeletingExpense(expense)}
-                        >
-                          <Trash className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    {formatTanggalIndonesia(expense.expense_date)} · {expense.category || '-'}
+                  </p>
+
+                  {expense.description && (
+                    <p className="text-xs text-muted-foreground break-words">
+                      {expense.description}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted-foreground">Diambil dari:</span>
+                    <Badge variant="outline" className={getSourceBadgeClass(expense.source)}>
+                      {labelDompet(expense.source)}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-[44px] min-w-[44px] px-3"
+                      onClick={() => handleOpenEdit(expense)}
+                    >
+                      <Pencil className="w-4 h-4 mr-1.5" />
+                      Ubah
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-[44px] min-w-[44px] px-3 text-rose-600 border-rose-200 hover:bg-rose-50"
+                      onClick={() => setDeletingExpense(expense)}
+                    >
+                      <Trash className="w-4 h-4 mr-1.5" />
+                      Hapus
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tampilan Tabel di Laptop (md ke atas) */}
+            <div className="hidden md:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Judul</TableHead>
+                    <TableHead>Kategori</TableHead>
+                    <TableHead>Diambil dari</TableHead>
+                    <TableHead className="text-right">Nominal</TableHead>
+                    <TableHead className="text-right w-[140px]">Aksi</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenses.map((expense) => (
+                    <TableRow key={expense.id} className="group">
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {formatTanggalIndonesia(expense.expense_date)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-semibold">{expense.title}</div>
+                        {expense.description && (
+                          <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {expense.description}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>{expense.category || '-'}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={getSourceBadgeClass(expense.source)}
+                        >
+                          {labelDompet(expense.source)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-rose-600">
+                        -{formatRupiah(expense.amount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-11 w-11 sm:h-9 sm:w-9 text-foreground hover:bg-muted"
+                            aria-label="Ubah"
+                            title="Ubah"
+                            onClick={() => handleOpenEdit(expense)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            type="button"
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-11 w-11 sm:h-9 sm:w-9 text-rose-500 hover:text-rose-600 hover:bg-rose-50" 
+                            aria-label="Hapus"
+                            title="Hapus"
+                            onClick={() => setDeletingExpense(expense)}
+                          >
+                            <Trash className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
       </div>
 
       {academicYearId && (
