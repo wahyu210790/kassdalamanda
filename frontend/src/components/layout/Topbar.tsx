@@ -1,12 +1,20 @@
-import { Bell, LogOut, User, Menu, Wallet } from "lucide-react"
+import { Bell, LogOut, User, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { navItems } from "./Sidebar"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/AuthContext"
 
 export function Topbar() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { logout } = useAuth()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b bg-background/80 backdrop-blur-md px-4 sm:gap-x-6 sm:px-6 lg:px-8">
@@ -73,7 +81,14 @@ export function Topbar() {
               <span className="text-sm font-semibold leading-none">Admin</span>
               <span className="text-xs text-muted-foreground mt-1">admin@alamanda.id</span>
             </div>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive transition-colors" title="Logout">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-muted-foreground hover:text-destructive transition-colors" 
+              title="Keluar"
+              aria-label="Keluar"
+              onClick={handleLogout}
+            >
               <LogOut className="h-5 w-5" />
             </Button>
           </div>
@@ -82,4 +97,3 @@ export function Topbar() {
     </header>
   )
 }
-

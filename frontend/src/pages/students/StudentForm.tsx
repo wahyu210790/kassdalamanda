@@ -82,7 +82,7 @@ export function StudentForm({ isOpen, onClose, student, academicYearId }: Studen
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}</DialogTitle>

@@ -139,29 +139,35 @@ export function Dashboard() {
             <div className="space-y-1">
               <CardTitle>Pengeluaran Terakhir</CardTitle>
             </div>
-            <Link to="/expenses" className="text-sm font-medium text-primary hover:underline flex items-center">
+            <Link to="/admin/expenses" className="text-sm font-medium text-primary hover:underline flex items-center">
               Lihat Semua <ArrowRight className="ml-1 w-4 h-4" />
             </Link>
           </CardHeader>
           <CardContent className="flex-1">
             {data?.recent_expenses?.length > 0 ? (
               <div className="space-y-4">
-                {data.recent_expenses.slice(0, 4).map((expense: any) => (
-                  <div key={expense.id} className="flex items-center">
-                    <div className="bg-rose-500/10 p-2 rounded-full mr-4">
-                      <Receipt className="w-4 h-4 text-rose-500" />
+                {data.recent_expenses.slice(0, 4).map((expense: any) => {
+                  const categoryName = typeof expense.category === 'object'
+                    ? (expense.category?.name || 'Umum')
+                    : (expense.category || 'Umum');
+
+                  return (
+                    <div key={expense.id} className="flex items-center">
+                      <div className="bg-rose-500/10 p-2 rounded-full mr-4">
+                        <Receipt className="w-4 h-4 text-rose-500" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium leading-none line-clamp-1">{expense.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {expense.expense_date} • {categoryName}
+                        </p>
+                      </div>
+                      <div className="font-semibold text-sm text-rose-600">
+                        -{formatRupiah(expense.amount)}
+                      </div>
                     </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none line-clamp-1">{expense.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {expense.expense_date} • {expense.category || 'Umum'}
-                      </p>
-                    </div>
-                    <div className="font-semibold text-sm text-rose-600">
-                      -{formatRupiah(expense.amount)}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-center p-4">

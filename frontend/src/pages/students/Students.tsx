@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
-import { Plus, Search, MoreVertical, Edit, Trash, AlertTriangle } from 'lucide-react';
-import { formatRupiah } from '@/lib/utils';
+import { Plus, Search, Edit, Trash, AlertTriangle } from 'lucide-react';
+import { nomorWhatsApp } from '@/lib/utils';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { StudentForm } from './StudentForm';
+import { useTahunAjaranAktif } from '@/hooks/useTahunAjaranAktif';
 
 interface Student {
   id: number;
@@ -25,14 +26,23 @@ export function Students() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | undefined>();
-  const [academicYearId] = useState(1); // Hardcoded untuk MVP, bisa diubah nanti dinamis
 
-  const { data: students = [], isLoading } = useQuery({
+  const { 
+    data: tahunAjaran, 
+    isLoading: isYearLoading, 
+    isError: isYearError, 
+    error: yearError 
+  } = useTahunAjaranAktif();
+  const academicYearId = tahunAjaran?.id;
+
+  const { data: students = [], isLoading: isStudentsLoading } = useQuery({
     queryKey: ['students', academicYearId],
     queryFn: async () => {
+      if (!academicYearId) return [];
       const response = await api.get(`/students?academic_year_id=${academicYearId}`);
       return response.data.data as Student[];
-    }
+    },
+    enabled: !!academicYearId,
   });
 
   const deleteMutation = useMutation({
@@ -63,6 +73,8 @@ export function Students() {
     s.parent_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const is404Year = (yearError as any)?.response?.status === 404;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -70,11 +82,23 @@ export function Students() {
           <h2 className="text-3xl font-bold tracking-tight">Manajemen Siswa</h2>
           <p className="text-muted-foreground mt-1">Kelola data siswa untuk tahun ajaran aktif.</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)} className="w-full sm:w-auto">
+        <Button 
+          onClick={() => setIsFormOpen(true)} 
+          className="w-full sm:w-auto"
+          disabled={!academicYearId || isYearLoading}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Tambah Siswa
         </Button>
       </div>
+
+      {isYearError && (
+        <div className="p-4 rounded-xl bg-destructive/15 text-destructive border border-destructive/20 text-sm font-medium">
+          {is404Year 
+            ? "Belum ada tahun ajaran aktif. Aktifkan tahun ajaran dulu." 
+            : "Gagal memuat tahun ajaran. Coba muat ulang halaman."}
+        </div>
+      )}
 
       <div className="bg-card border rounded-xl shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b flex items-center gap-4 bg-muted/20">
@@ -105,7 +129,7 @@ export function Students() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isYearLoading || isStudentsLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                     Memuat data siswa...
@@ -121,49 +145,80 @@ export function Students() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredStudents.map((student, index) => (
-                  <TableRow key={student.id} className="group">
-                    <TableCell className="text-center font-medium">{index + 1}</TableCell>
-                    <TableCell className="font-semibold">{student.student_name}</TableCell>
-                    <TableCell>{student.parent_name}</TableCell>
-                    <TableCell>
-                      {student.phone ? (
-                        <a href={`https://wa.me/${student.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                          {student.phone}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground italic">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={student.status === 'active' ? 'default' : 'secondary'} className={student.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 shadow-none border-0' : ''}>
-                        {student.status === 'active' ? 'Aktif' : 'Non-Aktif'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="w-8 h-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50" onClick={() => openEdit(student)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="w-8 h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50" onClick={() => handleDelete(student.id, student.student_name)}>
-                          <Trash className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredStudents.map((student, index) => {
+                  const waNumber = nomorWhatsApp(student.phone);
+                  return (
+                    <TableRow key={student.id} className="group">
+                      <TableCell className="text-center font-medium">{index + 1}</TableCell>
+                      <TableCell className="font-semibold">{student.student_name}</TableCell>
+                      <TableCell>{student.parent_name}</TableCell>
+                      <TableCell>
+                        {student.phone ? (
+                          waNumber ? (
+                            <a 
+                              href={`https://wa.me/${waNumber}`} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-primary hover:underline"
+                            >
+                              {student.phone}
+                            </a>
+                          ) : (
+                            <span>{student.phone}</span>
+                          )
+                        ) : (
+                          <span className="text-muted-foreground italic">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={student.status === 'active' ? 'default' : 'secondary'} 
+                          className={student.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 shadow-none border-0' : ''}
+                        >
+                          {student.status === 'active' ? 'Aktif' : 'Non-Aktif'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-11 w-11 sm:h-8 sm:w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50" 
+                            aria-label="Ubah data"
+                            title="Ubah data"
+                            onClick={() => openEdit(student)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-11 w-11 sm:h-8 sm:w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50" 
+                            aria-label="Hapus"
+                            title="Hapus"
+                            onClick={() => handleDelete(student.id, student.student_name)}
+                          >
+                            <Trash className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </div>
       </div>
 
-      <StudentForm 
-        isOpen={isFormOpen} 
-        onClose={closeForm} 
-        student={editingStudent} 
-        academicYearId={academicYearId}
-      />
+      {academicYearId && (
+        <StudentForm 
+          isOpen={isFormOpen} 
+          onClose={closeForm} 
+          student={editingStudent} 
+          academicYearId={academicYearId}
+        />
+      )}
     </div>
   );
 }
