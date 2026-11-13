@@ -18,9 +18,10 @@ export default defineConfig({
         name: 'Kas dan Tabungan SD Kelas 1 Alamanda',
         short_name: 'Kas Alamanda',
         description: 'Sistem Manajemen Terpadu Kas dan Tabungan Kelas',
-        theme_color: '#aa3bff',
+        theme_color: '#2563EB',
         background_color: '#ffffff',
         display: 'standalone',
+        lang: 'id',
         icons: [
           {
             src: 'pwa-192x192.png',
