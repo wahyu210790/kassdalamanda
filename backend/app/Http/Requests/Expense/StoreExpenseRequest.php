@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Expense;
 
+use App\Http\Requests\Concerns\PesanValidasiIndonesia;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreExpenseRequest extends FormRequest
 {
+    use PesanValidasiIndonesia;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -27,7 +30,7 @@ class StoreExpenseRequest extends FormRequest
             'category_id' => ['required', 'exists:expense_categories,id'],
             'source' => ['required', 'in:cash,saving,additional_income'],
             'title' => ['required', 'string', 'max:200'],
-            'amount' => ['required', 'integer', 'gt:0'],
+            'amount' => ['required', 'integer', 'gt:0', 'max:1000000000'],
             'expense_date' => ['required', 'date'],
             'description' => ['nullable', 'string'],
         ];
@@ -35,11 +38,13 @@ class StoreExpenseRequest extends FormRequest
 
     public function messages(): array
     {
-        return [
+        return array_merge($this->pesanDasarIndonesia(), [
             'category_id.required' => 'Kategori wajib dipilih.',
             'category_id.exists' => 'Kategori tidak ditemukan.',
             'source.required' => 'Diambil dari wajib dipilih.',
             'source.in' => 'Diambil dari tidak valid.',
-        ];
+            'amount.gt' => 'Nominal harus lebih dari 0.',
+            'amount.max' => 'Nominal maksimal Rp 1.000.000.000.',
+        ]);
     }
 }

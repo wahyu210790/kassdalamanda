@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Setting;
 
+use App\Http\Requests\Concerns\PesanValidasiIndonesia;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateSettingRequest extends FormRequest
 {
+    use PesanValidasiIndonesia;
+
     /**
      * Determine if the user is authorized to make this request.
      */

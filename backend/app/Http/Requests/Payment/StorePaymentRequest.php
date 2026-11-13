@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Payment;
 
+use App\Http\Requests\Concerns\PesanValidasiIndonesia;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePaymentRequest extends FormRequest
 {
+    use PesanValidasiIndonesia;
+
     /**
      * Determine if the user is authorized to make this request.
      */
